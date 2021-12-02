@@ -15,17 +15,17 @@
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-autoscaling</artifactId>
-            <version>1.11.327</version>
+            <version>1.12.122</version>
         </dependency>
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-ec2</artifactId>
-            <version>1.11.327</version>
+            <version>1.12.122</version>
         </dependency>
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-rds</artifactId>
-            <version>1.11.327</version>
+            <version>1.12.122</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
