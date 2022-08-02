@@ -92,10 +92,7 @@ PILLAR_PROPER_NAME_MAP = {
 # Helper class to convert a datetime item to JSON.
 class DateTimeEncoder(json.JSONEncoder):
     def default(self, z):
-        if isinstance(z, datetime.datetime):
-            return (str(z))
-        else:
-            return super().default(z)
+        return (str(z)) if isinstance(z, datetime.datetime) else super().default(z)
 
 def FindWorkload(
     waclient,
@@ -108,14 +105,12 @@ def FindWorkload(
         WorkloadNamePrefix=workloadName
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
-    # print("Full JSON:",json.dumps(response['WorkloadSummaries'], cls=DateTimeEncoder))
-    workloadId = response['WorkloadSummaries'][0]['WorkloadId']
     # print("WorkloadId",workloadId)
-    return workloadId
+    return response['WorkloadSummaries'][0]['WorkloadId']
 
 def getAnswersForQuestion(
     waclient,
@@ -132,15 +127,14 @@ def getAnswersForQuestion(
         QuestionId=questionId
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
     # print(json.dumps(response))
     jmesquery = "Answer.SelectedChoices"
-    answers = jmespath.search(jmesquery, response)
     # print(answers)
-    return answers
+    return jmespath.search(jmesquery, response)
 
 def getUnansweredForQuestion(
     waclient,
@@ -157,9 +151,9 @@ def getUnansweredForQuestion(
         QuestionId=questionId
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
     jmesquery = "Answer.SelectedChoices"
     answers = jmespath.search(jmesquery, response)
@@ -167,10 +161,8 @@ def getUnansweredForQuestion(
     possibleAnswers = jmespath.search(jmesquery, response)
 
     s = set(answers)
-    diff = [x for x in possibleAnswers if x not in s]
-
     # print(answers)
-    return diff
+    return [x for x in possibleAnswers if x not in s]
 
 def updateAnswersForQuestion(
     waclient,
@@ -191,14 +183,13 @@ def updateAnswersForQuestion(
         Notes=notes
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
     # print(json.dumps(response))
     jmesquery = "Answer.SelectedChoices"
-    answers = jmespath.search(jmesquery, response)
-    return answers
+    return jmespath.search(jmesquery, response)
 
 
 def getImprovementPlanHTMLDescription(
@@ -206,17 +197,17 @@ def getImprovementPlanHTMLDescription(
     PillarId
     ):
 
-    logger.debug("ImprovementPlanUrl: %s for pillar %s " % (ImprovementPlanUrl,PILLAR_PARSE_MAP[PillarId]))
+    logger.debug(
+        f"ImprovementPlanUrl: {ImprovementPlanUrl} for pillar {PILLAR_PARSE_MAP[PillarId]} "
+    )
+
     stepRaw = ImprovementPlanUrl.rsplit('#')[1]
 
-    if len(stepRaw) <= 5:
-        stepNumber = stepRaw[-1]
-    else:
-        stepNumber = stepRaw[-2]
+    stepNumber = stepRaw[-1] if len(stepRaw) <= 5 else stepRaw[-2]
     # print(stepNumber)
-    firstItem = "step"+stepNumber
-    secondItem = ("step"+str((int(stepNumber)+1)))
-    logger.debug ("Going from %s to %s" % (firstItem, secondItem))
+    firstItem = f"step{stepNumber}"
+    secondItem = f"step{str(int(stepNumber)+1)}"
+    logger.debug(f"Going from {firstItem} to {secondItem}")
     urlresponse = urllib.request.urlopen(ImprovementPlanUrl)
     htmlBytes = urlresponse.read()
     htmlStr = htmlBytes.decode("utf8")
@@ -306,9 +297,9 @@ def listLensReviewImprovements(
             )
 
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
     # print("Full JSON:",json.dumps(response['LensReviewReport']['Base64String'], cls=DateTimeEncoder))
 
@@ -325,28 +316,25 @@ def GetWorkload(
         WorkloadId=workloadId
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
-    # print("Full JSON:",json.dumps(response['Workload'], cls=DateTimeEncoder))
-    workload = response['Workload']
     # print("WorkloadId",workloadId)
-    return workload
+    return response['Workload']
 
 def generateHTMLHeader():
-    htmlPage = '<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>How do you detect and investigate security events? - AWS Well-Architected Framework</title><meta charset="utf-8"><link rel="script" href="./nav_shim.js" /><link rel="stylesheet" href="https://a0.awsstatic.com/main/css/1/style.css" /><link rel="icon" type="image/ico" href="https://a0.awsstatic.com/main/images/site/fav/favicon.ico" /><link rel="shortcut icon" type="image/ico" href="https://a0.awsstatic.com/main/images/site/fav/favicon.ico" /><link rel="stylesheet" type="text/css" href="https://docs.aws.amazon.com/css/awsdocs.css?v=20170615"><link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.4.2/css/all.css" integrity="sha384-/rXc/GQVaYpyDdyxK+ecHPVYJSN9bmVFBvjA/9eOB+pb3F2w2N6fc5qB9Ew5yIns" crossorigin="anonymous"><style type="text/css"> #pre, #main, #nav, #post { width: 80%; margin-left: 10%; margin-right: 10%; float: inherit; } #pre { margin-top: 80px; } #nav { margin-top: 90px; } #main * { font-size: x-large; text-rendering: optimizelegibility; } @media (max-width: 800px) { #main * { font-size: xx-large; } } .collapsible { background-color: #777; color: white; cursor: pointer; padding: 18px; width: 100%; border: none; text-align: left; outline: none; font-size: 15px; } .active, .collapsible:hover { background-color: #555; } p { line-height: 1.5em; } b { font-weight: bold; } .glossref { color: #444444; text-decoration: none; border-bottom: 1px dotted green; } .glossref:link, .glossref:visited { color: #444444; } .glossref:hover { color: green; } .waTable td:first-child { width: 15pc; } .waTable thead > tr { background-color: #EAF3FE; } .waTable td { padding: 5pt; border: 1pt solid black; } .waQuestionTableRef { width: 100%; margin-top: 1pc; padding: 5pt; border: 1pt solid black; background-color: #EEEEEE; } .waQuestionTableRef td { padding: 5pt; } .waQuestionTable { margin-top: 1pc; padding: 5pt; border: 1pt solid black; } .waQuestionTable tr:nth-child(3n+1) { background-color: #EAF3FE; } .stretchtext { margin-left: 1pt; margin-right: 1pt; padding-left: 8pt; padding-right: 8pt; background-color: #EAF3FE; border-radius: 10pt; } .stretchtext span:nth-child(1) { display: none; background-color: #EAF3FE; } .stretchtext :nth-child(1):target { display: inline; } .stretchtext :nth-child(1):target + a:not(target) { display: none; } #nav-breadcrumbs a, #nav-breadcrumbs span { margin: 0 10px } .toc, .toc li { list-style: none; } #walogo { width: 180px; float: right; } :target:before { content:" "; display:block; height:90px; margin:-90px 0 0; } ul.itemizedlist { margin-left: 2.5em } </style></head><body><header id="aws-page-header" class="awsm m-page-header" role="banner"></header>  '
-    # Add the ability to use a header file instead via an passed argument
-    # Here is how I would do do that:
-    # htmlPage = Path('header_file.html').read_text()
-    htmlPage += '<div id="main" role="main">'
-    htmlPage += "<h1>Python Well-Architected Report v"+__version__
+    htmlPage = (
+        '<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>How do you detect and investigate security events? - AWS Well-Architected Framework</title><meta charset="utf-8"><link rel="script" href="./nav_shim.js" /><link rel="stylesheet" href="https://a0.awsstatic.com/main/css/1/style.css" /><link rel="icon" type="image/ico" href="https://a0.awsstatic.com/main/images/site/fav/favicon.ico" /><link rel="shortcut icon" type="image/ico" href="https://a0.awsstatic.com/main/images/site/fav/favicon.ico" /><link rel="stylesheet" type="text/css" href="https://docs.aws.amazon.com/css/awsdocs.css?v=20170615"><link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.4.2/css/all.css" integrity="sha384-/rXc/GQVaYpyDdyxK+ecHPVYJSN9bmVFBvjA/9eOB+pb3F2w2N6fc5qB9Ew5yIns" crossorigin="anonymous"><style type="text/css"> #pre, #main, #nav, #post { width: 80%; margin-left: 10%; margin-right: 10%; float: inherit; } #pre { margin-top: 80px; } #nav { margin-top: 90px; } #main * { font-size: x-large; text-rendering: optimizelegibility; } @media (max-width: 800px) { #main * { font-size: xx-large; } } .collapsible { background-color: #777; color: white; cursor: pointer; padding: 18px; width: 100%; border: none; text-align: left; outline: none; font-size: 15px; } .active, .collapsible:hover { background-color: #555; } p { line-height: 1.5em; } b { font-weight: bold; } .glossref { color: #444444; text-decoration: none; border-bottom: 1px dotted green; } .glossref:link, .glossref:visited { color: #444444; } .glossref:hover { color: green; } .waTable td:first-child { width: 15pc; } .waTable thead > tr { background-color: #EAF3FE; } .waTable td { padding: 5pt; border: 1pt solid black; } .waQuestionTableRef { width: 100%; margin-top: 1pc; padding: 5pt; border: 1pt solid black; background-color: #EEEEEE; } .waQuestionTableRef td { padding: 5pt; } .waQuestionTable { margin-top: 1pc; padding: 5pt; border: 1pt solid black; } .waQuestionTable tr:nth-child(3n+1) { background-color: #EAF3FE; } .stretchtext { margin-left: 1pt; margin-right: 1pt; padding-left: 8pt; padding-right: 8pt; background-color: #EAF3FE; border-radius: 10pt; } .stretchtext span:nth-child(1) { display: none; background-color: #EAF3FE; } .stretchtext :nth-child(1):target { display: inline; } .stretchtext :nth-child(1):target + a:not(target) { display: none; } #nav-breadcrumbs a, #nav-breadcrumbs span { margin: 0 10px } .toc, .toc li { list-style: none; } #walogo { width: 180px; float: right; } :target:before { content:" "; display:block; height:90px; margin:-90px 0 0; } ul.itemizedlist { margin-left: 2.5em } </style></head><body><header id="aws-page-header" class="awsm m-page-header" role="banner"></header>  '
+        + '<div id="main" role="main">'
+    )
+
+    htmlPage += f"<h1>Python Well-Architected Report v{__version__}"
     htmlPage += "<br></div>"
     return htmlPage
 
 def generateHTMLTOC():
-    htmlPage = ""
-    htmlPage += '<div id="main" role="main">'
+    htmlPage = "" + '<div id="main" role="main">'
     htmlPage += '<h1>Table of Contents</h1>'
     htmlPage += '<ul class="itemizedlist" type="disc">'
     htmlPage += "<br>"
@@ -364,11 +352,9 @@ def getWorkloadProperties(
     waclient,
     workloadId
     ):
-    htmlPage = ""
-
     workloadJson = GetWorkload(waclient,workloadId)
 
-    htmlPage += '<div id="main" role="main">'
+    htmlPage = "" + '<div id="main" role="main">'
     htmlPage += "<h1>Workload Properties</h1>"
     htmlPage += '<ul class="itemizedlist" type="disc">'
 
@@ -413,21 +399,26 @@ def getPillarReport(
         for showChoices in ipList:
             ipItemHTML, questionIdText = getImprovementPlanHTMLDescription(showChoices['ParsedURL'],answeredQuestion['PillarId'])
 
-            headerString = "<h2><b>"+questionIdText+" - "+answeredQuestion['QuestionTitle']+"</h2>"
+            headerString = (
+                f"<h2><b>{questionIdText} - "
+                + answeredQuestion['QuestionTitle']
+                + "</h2>"
+            )
+
             # headerString = '<div class="wrap-collabsible"> <input id="collapsible" class="toggle" type="checkbox"> <label for="collapsible" class="lbl-toggle">'
             # headerString += questionIdText+" - "+answeredQuestion['QuestionTitle']
             # headerString += '</label><div class="collapsible-content"><div class="content-inner"><p>'
             headerString += "<h2><b>Current Risk: "+answeredQuestion['Risk']+"</h2>"
             htmlString += ipItemHTML.prettify()
-            # htmlString += "</p></div></div></div>"
-            # print(htmlString)
+                    # htmlString += "</p></div></div></div>"
+                    # print(htmlString)
 
-            # print(showChoices['ChoiceID'],)
+                    # print(showChoices['ChoiceID'],)
         # exit()
         htmlPage += headerString
         htmlPage += htmlString
-        # htmlPage += '</p></div>'
-        # htmlPage += '-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-='
+            # htmlPage += '</p></div>'
+            # htmlPage += '-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-='
 
     return htmlPage
 
@@ -438,23 +429,23 @@ def getPillarSummary(
     lensAlias,
     pillarId
     ):
-    htmlPage = ""
-
-
-    return htmlPage
+    return ""
 
 
 def main():
     boto3_min_version = "1.16.38"
     # Verify if the version of Boto3 we are running has the wellarchitected APIs included
     if (packaging.version.parse(boto3.__version__) < packaging.version.parse(boto3_min_version)):
-        logger.error("Your Boto3 version (%s) is less than %s. You must ugprade to run this script (pip3 upgrade boto3)" % (boto3.__version__, boto3_min_version))
+        logger.error(
+            f"Your Boto3 version ({boto3.__version__}) is less than {boto3_min_version}. You must ugprade to run this script (pip3 upgrade boto3)"
+        )
+
         exit()
 
     # STEP 1 - Configure environment
     # WORKLOADID = ARGUMENTS.workloadid
 
-    logger.info("Starting Boto %s Session" % boto3.__version__)
+    logger.info(f"Starting Boto {boto3.__version__} Session")
     # Create a new boto3 session
     SESSION1 = boto3.session.Session(profile_name=PROFILE)
     # Initiate the well-architected session using the region defined above
@@ -490,11 +481,11 @@ def main():
     # Open the file in a browser
     # Might want to make this an argument in the future
     with tempfile.NamedTemporaryFile('w', delete=False, suffix='.html') as f:
-        url = 'file://' + f.name
-        logger.info("Creating HTML file %s " % f.name)
+        url = f'file://{f.name}'
+        logger.info(f"Creating HTML file {f.name} ")
         f.write(htmlPage)
 
-    logger.info("Opening HTML URL (%s) in default WebBrowser" % url)
+    logger.info(f"Opening HTML URL ({url}) in default WebBrowser")
     webbrowser.open(url)
 
 

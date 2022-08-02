@@ -87,9 +87,10 @@ def process_global_vars():
 def find_latest_ami_name(region, arch):
     assert region, "Region is not defined"
     assert arch, "Architecture is not defined"
-    assert arch in ARCH_TO_AMI_NAME_PATTERN, \
-        "Architecture must be one of {}".format(
-            ARCH_TO_AMI_NAME_PATTERN.keys())
+    assert (
+        arch in ARCH_TO_AMI_NAME_PATTERN
+    ), f"Architecture must be one of {ARCH_TO_AMI_NAME_PATTERN.keys()}"
+
     pattern, owner = ARCH_TO_AMI_NAME_PATTERN[arch]
     ec2 = boto3.client("ec2", region_name=region)
     images = ec2.describe_images(
@@ -110,12 +111,14 @@ def find_latest_ami_name(region, arch):
 
 
 def find_in_outputs(outputs, key_to_find):
-    output_string = None
-    for output in outputs:
-        if (output['OutputKey'] == key_to_find):
-            output_string = output['OutputValue']
-            break
-    return output_string
+    return next(
+        (
+            output['OutputValue']
+            for output in outputs
+            if (output['OutputKey'] == key_to_find)
+        ),
+        None,
+    )
 
 
 def get_password_from_ssm(parameter_name, region):
@@ -146,10 +149,7 @@ def deploy_web_servers(event):
     # Get the S3 bucket the boot script is in, and the object to retrieve and the image to display
     boot_bucket = event['boot_bucket']
     boot_prefix = event['boot_prefix']
-    if 'boot_object' in event:
-      boot_object = event['boot_object']
-    else:
-      boot_object = None
+    boot_object = event['boot_object'] if 'boot_object' in event else None
     websiteimage = event['websiteimage']
 
     # Get the outputs of the VPC stack
@@ -158,10 +158,16 @@ def deploy_web_servers(event):
         stack_response = client.describe_stacks(StackName=vpc_stack)
         stack_list = stack_response['Stacks']
         if (len(stack_list) < 1):
-            logger.debug("Cannot find stack named " + vpc_stack + ", so cannot parse outputs as inputs")
+            logger.debug(
+                f"Cannot find stack named {vpc_stack}, so cannot parse outputs as inputs"
+            )
+
             sys.exit(1)
     except Exception:
-        logger.debug("Cannot find stack named " + vpc_stack + ", so cannot parse outputs as inputs")
+        logger.debug(
+            f"Cannot find stack named {vpc_stack}, so cannot parse outputs as inputs"
+        )
+
         sys.exit(1)
     vpc_outputs = stack_list[0]['Outputs']
 
@@ -182,10 +188,10 @@ def deploy_web_servers(event):
     elb_sg = find_in_outputs(vpc_outputs, 'WebELBSecurityGroup')
     web_sg = find_in_outputs(vpc_outputs, 'WebSecurityGroup')
     bastion_sg = find_in_outputs(vpc_outputs, 'BastionSecurityGroup')
-    webserver_sg_list = web_sg + ',' + bastion_sg
+    webserver_sg_list = f'{web_sg},{bastion_sg}'
 
     # Run in zones a, b, and c
-    azs = region + "a," + region + "b," + region + "c"
+    azs = f"{region}a,{region}b,{region}c"
 
     # Get the latest AMI
     latest_ami = find_latest_ami_name(region, "HVM64")
@@ -196,10 +202,16 @@ def deploy_web_servers(event):
         stack_response = client.describe_stacks(StackName=rds_stack)
         stack_list = stack_response['Stacks']
         if (len(stack_list) < 1):
-            logger.debug("Cannot find stack named " + rds_stack + ", so cannot parse outputs as inputs")
+            logger.debug(
+                f"Cannot find stack named {rds_stack}, so cannot parse outputs as inputs"
+            )
+
             sys.exit(1)
     except Exception:
-        logger.debug("Cannot find stack named " + rds_stack + ", so cannot parse outputs as inputs")
+        logger.debug(
+            f"Cannot find stack named {rds_stack}, so cannot parse outputs as inputs"
+        )
+
         sys.exit(1)
     try:
         workshop_name = event['workshop']
@@ -214,33 +226,99 @@ def deploy_web_servers(event):
     rds_password = get_password_from_ssm(workshop_name, region)
 
     # Prepare the stack parameters
-    webserver_parameters = []
-    webserver_parameters.append({'ParameterKey': 'VPCID', 'ParameterValue': vpcid, 'UsePreviousValue': True})
-    webserver_parameters.append({'ParameterKey': 'WebServerSecurityGroups', 'ParameterValue': webserver_sg_list, 'UsePreviousValue': True})
-    webserver_parameters.append({'ParameterKey': 'WebLoadBalancerSG', 'ParameterValue': elb_sg, 'UsePreviousValue': True})
-    webserver_parameters.append({'ParameterKey': 'WebLoadBalancerSubnets', 'ParameterValue': igw_subnets, 'UsePreviousValue': True})
-    webserver_parameters.append({'ParameterKey': 'WebServerSubnets', 'ParameterValue': private_subnets, 'UsePreviousValue': True})
-    webserver_parameters.append({'ParameterKey': 'WebServerInstanceType', 'ParameterValue': 't2.micro', 'UsePreviousValue': True})
-    webserver_parameters.append({'ParameterKey': 'WebServerAMI', 'ParameterValue': latest_ami, 'UsePreviousValue': False})
-    webserver_parameters.append({'ParameterKey': 'AvailabilityZones', 'ParameterValue': azs, 'UsePreviousValue': True})
-    webserver_parameters.append({'ParameterKey': 'BootBucketRegion', 'ParameterValue': cfn_region, 'UsePreviousValue': True})
-    webserver_parameters.append({'ParameterKey': 'BootBucket', 'ParameterValue': boot_bucket, 'UsePreviousValue': True})
-    webserver_parameters.append({'ParameterKey': 'BootPrefix', 'ParameterValue': boot_prefix, 'UsePreviousValue': True})
-    webserver_parameters.append({'ParameterKey': 'WebSiteImage', 'ParameterValue': websiteimage, 'UsePreviousValue': True})
-    webserver_parameters.append({'ParameterKey': 'RDSHostName', 'ParameterValue': rds_host, 'UsePreviousValue': True})
-    webserver_parameters.append({'ParameterKey': 'RDSUser', 'ParameterValue': 'admin', 'UsePreviousValue': True})
-    webserver_parameters.append({'ParameterKey': 'RDSPassword', 'ParameterValue': rds_password, 'UsePreviousValue': False})
-    
+    webserver_parameters = [
+        {
+            'ParameterKey': 'VPCID',
+            'ParameterValue': vpcid,
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'WebServerSecurityGroups',
+            'ParameterValue': webserver_sg_list,
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'WebLoadBalancerSG',
+            'ParameterValue': elb_sg,
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'WebLoadBalancerSubnets',
+            'ParameterValue': igw_subnets,
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'WebServerSubnets',
+            'ParameterValue': private_subnets,
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'WebServerInstanceType',
+            'ParameterValue': 't2.micro',
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'WebServerAMI',
+            'ParameterValue': latest_ami,
+            'UsePreviousValue': False,
+        },
+        {
+            'ParameterKey': 'AvailabilityZones',
+            'ParameterValue': azs,
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'BootBucketRegion',
+            'ParameterValue': cfn_region,
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'BootBucket',
+            'ParameterValue': boot_bucket,
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'BootPrefix',
+            'ParameterValue': boot_prefix,
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'WebSiteImage',
+            'ParameterValue': websiteimage,
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'RDSHostName',
+            'ParameterValue': rds_host,
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'RDSUser',
+            'ParameterValue': 'admin',
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'RDSPassword',
+            'ParameterValue': rds_password,
+            'UsePreviousValue': False,
+        },
+    ]
+
     # If Boot Object is supplied then use it, otherwise CloudFormation template will use Parameter default
     if boot_object is not None: 
       webserver_parameters.append({'ParameterKey': 'BootObject', 'ParameterValue': boot_object, 'UsePreviousValue': True})
-    
-    stack_tags = []
 
-    stack_tags.append({'Key': 'Workshop', 'Value': 'AWSWellArchitectedReliability' + workshop_name})
-    capabilities = []
-    capabilities.append('CAPABILITY_NAMED_IAM')
-    web_template_s3_url = "https://s3." + cfn_region + ".amazonaws.com/" + bucket + "/" + key_prefix + "web_server_autoscaling.json"
+    stack_tags = [
+        {
+            'Key': 'Workshop',
+            'Value': f'AWSWellArchitectedReliability{workshop_name}',
+        }
+    ]
+
+
+    capabilities = ['CAPABILITY_NAMED_IAM']
+    web_template_s3_url = f"https://s3.{cfn_region}.amazonaws.com/{bucket}/{key_prefix}web_server_autoscaling.json"
+
     client.create_stack(
         StackName=stackname,
         TemplateURL=web_template_s3_url,
@@ -250,14 +328,13 @@ def deploy_web_servers(event):
         Capabilities=capabilities,
         Tags=stack_tags
     )
-    return_dict = {'stackname': stackname}
-    return return_dict
+    return {'stackname': stackname}
 
 
 def check_stack(region, stack_name):
     # Create CloudFormation client
-    logger.debug("Running function check_stack in region " + region)
-    logger.debug("Running function check_stack on stack " + stack_name)
+    logger.debug(f"Running function check_stack in region {region}")
+    logger.debug(f"Running function check_stack on stack {stack_name}")
     client = boto3.client('cloudformation', region)
 
     # See if you can retrieve the stack
@@ -265,27 +342,35 @@ def check_stack(region, stack_name):
         stack_response = client.describe_stacks(StackName=stack_name)
         stack_list = stack_response['Stacks']
         if (len(stack_list) < 1):
-            logger.debug("No Stack named " + stack_name)
+            logger.debug(f"No Stack named {stack_name}")
             return False
-        logger.debug("Found stack named " + stack_name)
+        logger.debug(f"Found stack named {stack_name}")
         logger.debug("Status: " + stack_list[0]['StackStatus'])
         return True
     except ClientError as e:
-        # If the exception is that it doesn't exist, then check the client error before returning a value
         if (e.response['Error']['Code'] == 'ValidationError'):
             return False
-        else:
-            logger.debug("Stack will not be created: Unexpected exception found looking for stack named " + stack_name)
-            logger.debug("Client error:" + str(e.response))
-            return True
+        logger.debug(
+            f"Stack will not be created: Unexpected exception found looking for stack named {stack_name}"
+        )
+
+        logger.debug(f"Client error:{str(e.response)}")
+        return True
 
     except Exception:
-        logger.debug("Stack will not be created: Unexpected exception found looking for stack named " + stack_name)
+        logger.debug(
+            f"Stack will not be created: Unexpected exception found looking for stack named {stack_name}"
+        )
+
         print("Stack Trace:", traceback.format_exc())
         return True
 
 def status_complete(status):
-    return status == 'UPDATE_COMPLETE' or status == 'CREATE_COMPLETE' or status == 'UPDATE_ROLLBACK_COMPLETE'
+    return status in [
+        'UPDATE_COMPLETE',
+        'CREATE_COMPLETE',
+        'UPDATE_ROLLBACK_COMPLETE',
+    ]
 
 def lambda_handler(event, context):
     try:
@@ -297,9 +382,9 @@ def lambda_handler(event, context):
         logger.info('event:')
         logger.info(json.dumps(event))
         if (context != 0):
-            logger.info('context.log_stream_name:' + context.log_stream_name)
-            logger.info('context.log_group_name:' + context.log_group_name)
-            logger.info('context.aws_request_id:' + context.aws_request_id)
+            logger.info(f'context.log_stream_name:{context.log_stream_name}')
+            logger.info(f'context.log_group_name:{context.log_group_name}')
+            logger.info(f'context.aws_request_id:{context.aws_request_id}')
         else:
             logger.info("No Context Object!")
         process_global_vars()
@@ -311,18 +396,23 @@ def lambda_handler(event, context):
             rds_stack_status = event['rds']['status']
             if (status_complete(rds_stack_status)):
                 if not check_stack(event['region_name'], stackname):
-                    logger.debug("Stack " + stackname + " doesn't exist; creating")
+                    logger.debug(f"Stack {stackname}" + " doesn't exist; creating")
                     return deploy_web_servers(event)
                 else:
-                    logger.debug("Stack " + stackname + " exists")
-                    return_dict = {'stackname': stackname}
-                    return return_dict
+                    logger.debug(f"Stack {stackname} exists")
+                    return {'stackname': stackname}
             else:
-                logger.debug("RDS Stack was not completely created: status = " + rds_stack_status)
+                logger.debug(
+                    f"RDS Stack was not completely created: status = {rds_stack_status}"
+                )
+
                 sys.exit(1)
 
         else:
-            logger.debug("VPC Stack was not completely created: status = " + vpc_stack_status)
+            logger.debug(
+                f"VPC Stack was not completely created: status = {vpc_stack_status}"
+            )
+
             sys.exit(1)
 
     except SystemExit:

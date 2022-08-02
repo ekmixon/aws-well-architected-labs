@@ -76,7 +76,10 @@ def process_global_vars():
 
 # CloudFormation status: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-describing-stacks.html
 def stack_status_in_progress(status):
-  return status.endswith('IN_PROGRESS') and not (status == 'UPDATE_COMPLETE_CLEANUP_IN_PROGRESS')
+    return (
+        status.endswith('IN_PROGRESS')
+        and status != 'UPDATE_COMPLETE_CLEANUP_IN_PROGRESS'
+    )
 
 def wait_for_stack(region, stack_id, context):
 
@@ -86,16 +89,16 @@ def wait_for_stack(region, stack_id, context):
 
     stack_building = True
     stack_status = 'CREATE_FAILED'
-    while stack_building is True:
+    while stack_building:
         try:
             stack_response = client.describe_stacks(StackName=stack_id)
             stack_list = stack_response['Stacks']
             if (len(stack_list) < 1):
-                logger.debug("No Stack named " + stack_id)
+                logger.debug(f"No Stack named {stack_id}")
                 break
-            logger.debug("Found stack named " + stack_id)
+            logger.debug(f"Found stack named {stack_id}")
             stack_status = stack_list[0]['StackStatus']
-            logger.debug("Status: " + stack_status)
+            logger.debug(f"Status: {stack_status}")
             stack_building = stack_status_in_progress(stack_status)
             if not stack_building:
                 break
@@ -104,20 +107,18 @@ def wait_for_stack(region, stack_id, context):
             else:
                 time_remaining = 50000
             if (time_remaining > 40000):
-                logger.debug("still waiting: time (MS) left to execute: {}".format(time_remaining))
+                logger.debug(f"still waiting: time (MS) left to execute: {time_remaining}")
                 sleep(30)
-            # timeout and return stack status to state machine for it to deal with it.
             else:
-                logger.debug("TIMED OUT waiting on stack: " + stack_id)
-                logger.debug("status: " + stack_status)
-                logger.debug("region: " + region)
+                logger.debug(f"TIMED OUT waiting on stack: {stack_id}")
+                logger.debug(f"status: {stack_status}")
+                logger.debug(f"region: {region}")
                 break
         except:
             logger.debug("Unexpected error!\n Stack Trace:", traceback.format_exc())
-            logger.debug("Exception when checking for stack named " + stack_id)
+            logger.debug(f"Exception when checking for stack named {stack_id}")
 
-    return_dict = {'stackname': stack_id, 'status': stack_status}
-    return return_dict
+    return {'stackname': stack_id, 'status': stack_status}
 
 
 def lambda_handler(event, context):
@@ -130,9 +131,9 @@ def lambda_handler(event, context):
         logger.info('event:')
         logger.info(json.dumps(event))
         if (context != 0):
-            logger.info('context.log_stream_name:' + context.log_stream_name)
-            logger.info('context.log_group_name:' + context.log_group_name)
-            logger.info('context.aws_request_id:' + context.aws_request_id)
+            logger.info(f'context.log_stream_name:{context.log_stream_name}')
+            logger.info(f'context.log_group_name:{context.log_group_name}')
+            logger.info(f'context.aws_request_id:{context.aws_request_id}')
         else:
             logger.info("No Context Object!")
         process_global_vars()

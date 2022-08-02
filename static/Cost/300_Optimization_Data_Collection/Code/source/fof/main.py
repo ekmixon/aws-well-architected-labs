@@ -91,4 +91,4 @@ def start_crawler():
         glue_client.start_crawler(Name=os.environ["CRAWLER_NAME"])
     except Exception as e:
         # Send some context about this error to Lambda Logs
-        logging.warning("%s" % e)
+        logging.warning(f"{e}")

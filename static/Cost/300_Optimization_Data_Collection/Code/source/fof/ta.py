@@ -29,16 +29,16 @@ def main(account_id):
                 check_result = support_client.describe_trusted_advisor_check_result(
                     checkId=c_id, language="en"
                 )
-                
-                base.update({'Timestamp':check_result['result']['timestamp']})
-                
+
+                base['Timestamp'] = check_result['result']['timestamp']
+
                 for resource in check_result["result"]["flaggedResources"]: 
                     meta_result = dict(zip(meta, resource["metadata"]))
                     del resource['metadata']
                     resource["Region"] = resource.pop("region")
-                    meta_result.update(base)
-                    meta_result.update(CheckName)
-                    meta_result.update(resource)
+                    meta_result |= base
+                    meta_result |= CheckName
+                    meta_result |= resource
                     dataJSONData = json.dumps(meta_result, cls=DateTimeEncoder)
 
                     f.write(dataJSONData)

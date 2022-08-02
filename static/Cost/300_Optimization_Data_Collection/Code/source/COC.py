@@ -14,13 +14,10 @@ def get_ec2_instance_recommendations(accountid, client):
                 accountid,
             ]
         )
-        
-        data  = response['instanceRecommendations']
-        
-        return data
+
+        return response['instanceRecommendations']
     except Exception as e:
-                pass
-                logging.warning(f"{e} - {accountid}")
+        logging.warning(f"{e} - {accountid}")
 
 
 def get_auto_scaling_group_recommendations(accountid, client):
@@ -31,12 +28,9 @@ def get_auto_scaling_group_recommendations(accountid, client):
                 accountid,
             ]
         )
-        data  = response['autoScalingGroupRecommendations']
-        
-        return data
+        return response['autoScalingGroupRecommendations']
     except Exception as e:
-                pass
-                logging.warning(f"{e} - {accountid}")
+        logging.warning(f"{e} - {accountid}")
 
 def get_lambda_function_recommendations(accountid, client):
     try:
@@ -46,12 +40,9 @@ def get_lambda_function_recommendations(accountid, client):
                 accountid,
             ]
         )
-        data  = response['lambdaFunctionRecommendations']
-        
-        return data
+        return response['lambdaFunctionRecommendations']
     except Exception as e:
-                pass
-                logging.warning(f"{e} - {accountid}")
+        logging.warning(f"{e} - {accountid}")
 
 
 def get_ebs_volume_recommendations(accountid, client):
@@ -62,28 +53,22 @@ def get_ebs_volume_recommendations(accountid, client):
                 accountid,
             ]
         )
-        data  = response['volumeRecommendations']
-        
-        return data
+        return response['volumeRecommendations']
     except Exception as e:
-                pass
-                logging.warning(f"{e} - {accountid}")
+        logging.warning(f"{e} - {accountid}")
 
 
 def write_file(file_name, data):
-    with open('/tmp/%s.json' %file_name, 'w') as outfile:
-     
+    with open(f'/tmp/{file_name}.json', 'w') as outfile:
+         
         for item in data:
-            if item is None or len(item) == 0:
-                pass
             try:
                 for instanceArn in item:
                     del instanceArn['lastRefreshTimestamp']
                     json.dump(instanceArn, outfile)
                     outfile.write('\n')
             except Exception as e:
-                pass
-                logging.warning("%s" % e)
+                logging.warning(f"{e}")
 
 
 def s3_upload(recommendations, Region, account_id):
@@ -98,7 +83,7 @@ def s3_upload(recommendations, Region, account_id):
         print(f"{recommendations} data in s3 {S3BucketName}")
     except Exception as e:
         # Send some context about this error to Lambda Logs
-        logging.warning("%s" % e)
+        logging.warning(f"{e}")
 
 def start_crawler(Crawler_Name):
     glue_client = boto3.client("glue")
@@ -107,7 +92,7 @@ def start_crawler(Crawler_Name):
         print(f"{Crawler_Name} has been started")
     except Exception as e:
         # Send some context about this error to Lambda Logs
-        logging.warning("%s" % e)
+        logging.warning(f"{e}")
 
 def lambda_handler(event, context):
     ec2_reccomendations = []
@@ -124,7 +109,7 @@ def lambda_handler(event, context):
             RoleArn=ROLE_ARN,
             RoleSessionName="cross_acct_lambda"
     )
-                
+
     ACCESS_KEY = acct_b['Credentials']['AccessKeyId']
     SECRET_KEY = acct_b['Credentials']['SecretAccessKey']
     SESSION_TOKEN = acct_b['Credentials']['SessionToken']
@@ -138,19 +123,19 @@ def lambda_handler(event, context):
     )
     try:
         for record in event['Records']:
-        
+
             account_id = record["body"]
-            
+
             print(account_id)
             data = get_ec2_instance_recommendations(account_id, client)
             ec2_reccomendations.append(data)
-            
+
             auto_data = get_auto_scaling_group_recommendations(account_id, client)
             auto_scaling_group_recommendations.append(auto_data)
 
             lambda_data = get_lambda_function_recommendations(account_id, client)
             lambda_function_recommendations.append(lambda_data)
-            
+
             ebs_data = get_ebs_volume_recommendations(account_id, client)
             ebs_volume_recommendations.append(ebs_data)
 
@@ -172,4 +157,4 @@ def lambda_handler(event, context):
 
     except Exception as e:
         # Send some context about this error to Lambda Logs
-        logging.warning("%s" % e)
+        logging.warning(f"{e}")

@@ -80,12 +80,14 @@ def process_global_vars():
 
 
 def find_in_outputs(outputs, key_to_find):
-    output_string = None
-    for output in outputs:
-        if (output['OutputKey'] == key_to_find):
-            output_string = output['OutputValue']
-            break
-    return output_string
+    return next(
+        (
+            output['OutputValue']
+            for output in outputs
+            if (output['OutputKey'] == key_to_find)
+        ),
+        None,
+    )
 
 
 def deploy_read_replica(event):
@@ -112,10 +114,16 @@ def deploy_read_replica(event):
         stack_response = client.describe_stacks(StackName=vpc_stack)
         stack_list = stack_response['Stacks']
         if (len(stack_list) < 1):
-            logger.debug("Cannot find stack named " + vpc_stack + ", so cannot parse outputs as inputs")
+            logger.debug(
+                f"Cannot find stack named {vpc_stack}, so cannot parse outputs as inputs"
+            )
+
             return 1
     except Exception:
-        logger.debug("Cannot find stack named " + vpc_stack + ", so cannot parse outputs as inputs")
+        logger.debug(
+            f"Cannot find stack named {vpc_stack}, so cannot parse outputs as inputs"
+        )
+
         sys.exit(1)
     vpc_outputs = stack_list[0]['Outputs']
 
@@ -124,7 +132,7 @@ def deploy_read_replica(event):
     subnet_list = private_subnets.split(',')
     if (len(subnet_list) < 2):
         return 1
-    rds_subnet_list = subnet_list[0] + ',' + subnet_list[1]
+    rds_subnet_list = f'{subnet_list[0]},{subnet_list[1]}'
 
     # Create the list of security groups to pass
     rds_sg = find_in_outputs(vpc_outputs, 'MySQLSecurityGroup')
@@ -136,10 +144,16 @@ def deploy_read_replica(event):
         stack_response = other_region_client.describe_stacks(StackName=rds_stack)
         stack_list = stack_response['Stacks']
         if (len(stack_list) < 1):
-            logger.debug("Cannot find stack named " + rds_stack + ", so cannot parse outputs as inputs")
+            logger.debug(
+                f"Cannot find stack named {rds_stack}, so cannot parse outputs as inputs"
+            )
+
             return 1
     except Exception:
-        logger.debug("Cannot find stack named " + rds_stack + ", so cannot parse outputs as inputs")
+        logger.debug(
+            f"Cannot find stack named {rds_stack}, so cannot parse outputs as inputs"
+        )
+
         sys.exit(1)
 
     # Parse the output to find the name of the RDS instance
@@ -156,8 +170,8 @@ def deploy_read_replica(event):
     except Exception:
         logger.debug("Unexpected error! (when parsing workshop name)\n Stack Trace:", traceback.format_exc())
         workshop_name = 'UnknownWorkshop'
-    
-    logger.debug("Workshop Name: " + workshop_name)
+
+    logger.debug(f"Workshop Name: {workshop_name}")
 
 
     # Get DB instance type only if it was specified (it is optional)
@@ -171,19 +185,46 @@ def deploy_read_replica(event):
         db_instance_class = None
 
     # Prepare the stack parameters
-    rds_parameters = []
-    rds_parameters.append({'ParameterKey': 'SourceDatabaseRegion', 'ParameterValue': region, 'UsePreviousValue': True})
-    rds_parameters.append({'ParameterKey': 'SourceDatabaseID', 'ParameterValue': rds_id, 'UsePreviousValue': True})
-    rds_parameters.append({'ParameterKey': 'DBSubnetIds', 'ParameterValue': rds_subnet_list, 'UsePreviousValue': True})
-    rds_parameters.append({'ParameterKey': 'DBSecurityGroups', 'ParameterValue': rds_sg, 'UsePreviousValue': True})
-    rds_parameters.append({'ParameterKey': 'WorkshopName', 'ParameterValue': workshop_name, 'UsePreviousValue': True})
+    rds_parameters = [
+        {
+            'ParameterKey': 'SourceDatabaseRegion',
+            'ParameterValue': region,
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'SourceDatabaseID',
+            'ParameterValue': rds_id,
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'DBSubnetIds',
+            'ParameterValue': rds_subnet_list,
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'DBSecurityGroups',
+            'ParameterValue': rds_sg,
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'WorkshopName',
+            'ParameterValue': workshop_name,
+            'UsePreviousValue': True,
+        },
+    ]
+
     # If DB instance class supplied then use it, otherwise CloudFormation template will use Parameter default
     if (db_instance_class is not None):
       rds_parameters.append({'ParameterKey': 'DBInstanceClass', 'ParameterValue': db_instance_class, 'UsePreviousValue': True})
-    stack_tags = []
+    rr_template_s3_url = f"https://s3.{cfn_region}.amazonaws.com/{bucket}/{key_prefix}mySQL_rds_readreplica.json"
 
-    rr_template_s3_url = "https://s3." + cfn_region + ".amazonaws.com/" + bucket + "/" + key_prefix + "mySQL_rds_readreplica.json"
-    stack_tags.append({'Key': 'Workshop', 'Value': 'AWSWellArchitectedReliability' + workshop_name})
+    stack_tags = [
+        {
+            'Key': 'Workshop',
+            'Value': f'AWSWellArchitectedReliability{workshop_name}',
+        }
+    ]
+
     client.create_stack(
         StackName=stackname,
         TemplateURL=rr_template_s3_url,
@@ -193,13 +234,12 @@ def deploy_read_replica(event):
         Tags=stack_tags
     )
 
-    return_dict = {'stackname': stackname}
-    return return_dict
+    return {'stackname': stackname}
 
 
 def check_stack(region, stack_name):
     # Create CloudFormation client
-    logger.debug("Running function check_stack in region " + region)
+    logger.debug(f"Running function check_stack in region {region}")
     client = boto3.client('cloudformation', region)
 
     # See if you can retrieve the stack
@@ -207,22 +247,26 @@ def check_stack(region, stack_name):
         stack_response = client.describe_stacks(StackName=stack_name)
         stack_list = stack_response['Stacks']
         if (len(stack_list) < 1):
-            logger.debug("No Stack named " + stack_name)
+            logger.debug(f"No Stack named {stack_name}")
             return False
-        logger.debug("Found stack named " + stack_name)
+        logger.debug(f"Found stack named {stack_name}")
         logger.debug("Status: " + stack_list[0]['StackStatus'])
         return True
     except ClientError as e:
-        # If the exception is that it doesn't exist, then check the client error before returning a value
         if (e.response['Error']['Code'] == 'ValidationError'):
             return False
-        else:
-            logger.debug("Stack will not be created: Unexpected exception found looking for stack named " + stack_name)
-            logger.debug("Client error:" + str(e.response))
-            return True
+        logger.debug(
+            f"Stack will not be created: Unexpected exception found looking for stack named {stack_name}"
+        )
+
+        logger.debug(f"Client error:{str(e.response)}")
+        return True
 
     except Exception:
-        logger.debug("Stack will not be created: Unexpected exception found looking for stack named " + stack_name)
+        logger.debug(
+            f"Stack will not be created: Unexpected exception found looking for stack named {stack_name}"
+        )
+
         print("Stack Trace:", traceback.format_exc())
         return True
 
@@ -237,20 +281,19 @@ def lambda_handler(event, context):
         logger.info('event:')
         logger.info(json.dumps(event))
         if (context != 0):
-            logger.info('context.log_stream_name:' + context.log_stream_name)
-            logger.info('context.log_group_name:' + context.log_group_name)
-            logger.info('context.aws_request_id:' + context.aws_request_id)
+            logger.info(f'context.log_stream_name:{context.log_stream_name}')
+            logger.info(f'context.log_group_name:{context.log_group_name}')
+            logger.info(f'context.aws_request_id:{context.aws_request_id}')
         else:
             logger.info("No Context Object!")
         process_global_vars()
 
         if not check_stack(event['secondary_region_name'], stackname):
-            logger.debug("Stack " + stackname + " doesn't exist; creating")
+            logger.debug(f"Stack {stackname}" + " doesn't exist; creating")
             return deploy_read_replica(event)
         else:
-            logger.debug("Stack " + stackname + " exists")
-            return_dict = {'stackname': stackname}
-            return return_dict
+            logger.debug(f"Stack {stackname} exists")
+            return {'stackname': stackname}
 
     except SystemExit:
         logger.error("Exiting")

@@ -52,8 +52,10 @@ class RequestHandler(BaseHTTPRequestHandler):
         # Default request URL without additional path info (main response page)
         if self.path == '/':
 
-            message = "<h1>Enjoy some classic television</h1>"
-            message += "<h1>What to watch next....</h1>"
+            message = (
+                "<h1>Enjoy some classic television</h1>"
+                + "<h1>What to watch next....</h1>"
+            )
 
             # Generate User ID between 1 and 4
             # This currently uses a randomly generated user.
@@ -106,7 +108,6 @@ class RequestHandler(BaseHTTPRequestHandler):
                 )
             )
 
-        # Healthcheck request - will be used by the Elastic Load Balancer
         elif self.path == '/healthcheck':
 
             # Return a success status code
@@ -129,15 +130,23 @@ class RequestHandler(BaseHTTPRequestHandler):
         return
 
 # Utility function to consistently format how recommendations are displayed
-def recommendation_message (user_name, tv_show, is_custom_reco):
+def recommendation_message(user_name, tv_show, is_custom_reco):
     if is_custom_reco:
         tag_line = "your recommendation is"
     else:
         tag_line = "everyone enjoys this classic"
-    cell1 = "<b>" + user_name + "</b>, " + tag_line + ":"
-    cell2 = "<b>" + tv_show + "</b>"
-    reco_msg = "<table border=\"5\"><tr>" + "<td>" + cell1 + "</td>" + "<td>" + cell2 + "</td>" + "</tr></table>"
-    return reco_msg
+    cell1 = f"<b>{user_name}</b>, {tag_line}:"
+    cell2 = f"<b>{tv_show}</b>"
+    return (
+        "<table border=\"5\"><tr>"
+        + "<td>"
+        + cell1
+        + "</td>"
+        + "<td>"
+        + cell2
+        + "</td>"
+        + "</tr></table>"
+    )
 
 # Retrieve Metadata which can be useful to students 
 # For example to see which instance /  AWS AZ they are hitting
@@ -145,14 +154,15 @@ def get_metadata():
     metadata = '<br/><hr><h3>EC2 Metadata</h3>'
     try:
         message_parts = [
-            'account_id: %s' % ec2_metadata.account_id,
-            'ami_id: %s' % ec2_metadata.ami_id,
-            'availability_zone: %s' % ec2_metadata.availability_zone,
-            'instance_id: %s' % ec2_metadata.instance_id,
-            'instance_type: %s' % ec2_metadata.instance_type,
-            'private_hostname: %s' % ec2_metadata.private_hostname,
-            'private_ipv4: %s' % ec2_metadata.private_ipv4
+            f'account_id: {ec2_metadata.account_id}',
+            f'ami_id: {ec2_metadata.ami_id}',
+            f'availability_zone: {ec2_metadata.availability_zone}',
+            f'instance_id: {ec2_metadata.instance_id}',
+            f'instance_type: {ec2_metadata.instance_type}',
+            f'private_hostname: {ec2_metadata.private_hostname}',
+            f'private_ipv4: {ec2_metadata.private_ipv4}',
         ]
+
         metadata += '<br>'.join(message_parts)
     except Exception:
         metadata += "Running outside AWS"
@@ -182,9 +192,7 @@ def call_getRecommendation(region, user_id):
     dependency_enabled = value['Parameter']['Value'] == "true"
     table_name = "RecommendationService" if dependency_enabled else "dependencyShouldFail"
 
-    # Call the RecommendationService 
-    # (actually just a simply lookup in a DynamoDB table, which is acting as a mock for the RecommendationService)
-    response = ddb_client.get_item(
+    return ddb_client.get_item(
         TableName=table_name,
         Key={
             'ServiceAPI': {
@@ -192,11 +200,9 @@ def call_getRecommendation(region, user_id):
             },
             'UserID': {
                 'N': user_id,
-            }
-        }
+            },
+        },
     )
-
-    return response
 
 # Initialize server
 def run(argv):

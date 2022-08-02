@@ -17,11 +17,11 @@ CleanupAnalyzerArn = os.environ['CleanupAnalyzer']
 
 def lambda_handler(event, context):
     client = boto3.client('iam')
-    
+
     today = datetime.datetime.now()
-    
+
     report = ''
-    
+
     # Iterate over all the users
     userResponse = client.list_users()
     for u in userResponse['Users']:
@@ -52,7 +52,7 @@ def lambda_handler(event, context):
             report += 'User {0} has not logged in since {1} and needs cleanup\n'.format(
                 u['UserName'],
                 passwordLastUsed)
-        
+
         # If we haven't deleted the user
         if not deleted:
             # Get their access keys
@@ -95,13 +95,13 @@ def lambda_handler(event, context):
                         u['UserName'],
                         k['AccessKeyId'],
                         keyLastUsed)
-        
+
     # Iterate over all the roles
     rolesResponse = client.list_roles(MaxItems=1000)
     for r in [r for r in rolesResponse['Roles'] if '/aws-service-role/' not in r['Path'] and '/service-role/' not in r['Path']]:
         # We need to create a job to generate the last access report
         jobId = client.generate_service_last_accessed_details(Arn=r['Arn'])['JobId']
-        
+
         roleAccessDetails = client.get_service_last_accessed_details(JobId=jobId)
         jobAttempt = 0
         while roleAccessDetails['JobStatus'] == 'IN_PROGRESS':
@@ -111,39 +111,30 @@ def lambda_handler(event, context):
         if roleAccessDetails['JobStatus'] == 'FAILED':
             report += 'Unable to retrive last access report for role {0}. No action taken.\n'.format(
                     r['Arn'])
-        else:
-            lastAccessedDates = [a['LastAuthenticated'] for a in roleAccessDetails['ServicesLastAccessed'] if 'LastAuthenticated' in a]
-            if not lastAccessedDates:
-                report += 'Role {0} has no access history. No action taken.\n'.format(
-                        r['Arn'])
-            else:
-                roleLastUsed = min(lastAccessedDates)
-                daysSinceUsed = (today - roleLastUsed.replace(tzinfo=None)).days
+        elif lastAccessedDates := [
+            a['LastAuthenticated']
+            for a in roleAccessDetails['ServicesLastAccessed']
+            if 'LastAuthenticated' in a
+        ]:
+            roleLastUsed = min(lastAccessedDates)
+            daysSinceUsed = (today - roleLastUsed.replace(tzinfo=None)).days
                 # If the feature is enabled (>0) and the days since used > delete setting
-                if (minAgeRolesToDelete > 0 and daysSinceUsed >= minAgeRolesToDelete):
-                    # Delete the user
-                    client.delete_role(RoleName=r['RoleName'])
-                    report += 'Role {0} has not been used since {1} and has been deleted\n'.format(
-                        r['Arn'],
-                        roleLastUsed)
-                # else, if the features is enabled and the days since used > disable setting
-                elif (minAgeRolesToDelete > 0 and daysSinceUsed >= minAgeRolesToDelete):
-                    # Force a password reset
-                    client.attach_role_policy(
-                        PolicyArn='arn:aws:iam::aws:policy/AWSDenyAll',
-                        RoleName=r['RoleName'],
-                    )
-                    report += 'Role {0} has not been used since {1} and has been disabled\n'.format(
-                        r['Arn'],
-                        roleLastUsed)
-                # else, if the days since used > report setting
-                elif (daysSinceUsed >= minAgeRolesToReport):
-                    # add the user to the report
-                    print(r)
-                    report += 'Role {0} has not been used since {1} and needs cleanup\n'.format(
-                        r['Arn'],
-                        roleLastUsed)
+            if (minAgeRolesToDelete > 0 and daysSinceUsed >= minAgeRolesToDelete):
+                # Delete the user
+                client.delete_role(RoleName=r['RoleName'])
+                report += 'Role {0} has not been used since {1} and has been deleted\n'.format(
+                    r['Arn'],
+                    roleLastUsed)
+            elif (daysSinceUsed >= minAgeRolesToReport):
+                # add the user to the report
+                print(r)
+                report += 'Role {0} has not been used since {1} and needs cleanup\n'.format(
+                    r['Arn'],
+                    roleLastUsed)
 
+        else:
+            report += 'Role {0} has no access history. No action taken.\n'.format(
+                    r['Arn'])
     # Get all findings from access analyzer if enabled
     if CleanupAnalyzerArn:
         analyzerClient = boto3.client('accessanalyzer')
@@ -156,12 +147,13 @@ def lambda_handler(event, context):
             f['resourceType'],
             f['resource'],
             f['id'])
-    
-    if not report:
-        report = 'IAM user cleanup successfully ran. No outstanding users found.'
-    else:
-        report = 'IAM user cleanup successfully ran.\n\n' + report
-    
+
+    report = (
+        'IAM user cleanup successfully ran.\n\n' + report
+        if report
+        else 'IAM user cleanup successfully ran. No outstanding users found.'
+    )
+
     snsClient = boto3.client('sns')
     snsClient.publish(
         TopicArn=os.environ['TopicTarget'],

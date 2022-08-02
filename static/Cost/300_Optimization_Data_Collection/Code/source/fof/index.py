@@ -89,7 +89,7 @@ def s3_upload(file_name):
 
 def get_ou_ids(parent_id, client):
     full_result = {}
-    
+
     paginator = client.get_paginator('list_organizational_units_for_parent')
     iterator  = paginator.paginate(
         ParentId=parent_id
@@ -99,15 +99,12 @@ def get_ou_ids(parent_id, client):
     for page in iterator:
         for ou in page['OrganizationalUnits']:
             print(ou['Name'])
-            full_result[ou['Id']]=[]
-            full_result[ou['Id']].append(ou['Name'])
-
-
+            full_result[ou['Id']] = [ou['Name']]
     return full_result
 
 def get_acc_ids(parent_id,  client):
     full_result = []
-    
+
     paginator = client.get_paginator('list_accounts_for_parent')
     iterator  = paginator.paginate(
         ParentId=parent_id

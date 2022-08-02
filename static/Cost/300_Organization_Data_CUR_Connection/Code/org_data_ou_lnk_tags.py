@@ -102,8 +102,7 @@ def get_ou_ids(parent_id, client):
 
     for ou in ous:
         ou_info = client.describe_organizational_unit(OrganizationalUnitId=ou)
-        full_result[ou]=[]
-        full_result[ou].append(ou_info['OrganizationalUnit']['Name'])
+        full_result[ou] = [ou_info['OrganizationalUnit']['Name']]
     return full_result
 
 def get_acc_ids(parent_id,  client):

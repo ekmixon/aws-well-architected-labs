@@ -98,26 +98,81 @@ def deploy_vpc(event):
         logger.error("Unexpected error!\n Stack Trace:", traceback.format_exc())
         workshop_name = 'UnknownWorkshop'
 
-    vpc_parameters = []
-    vpc_parameters.append({'ParameterKey': 'BastionCidrIp', 'ParameterValue': '0.0.0.0/0', 'UsePreviousValue': True})
-    vpc_parameters.append({'ParameterKey': 'VPCCidrBlock', 'ParameterValue': '10.0.0.0/16', 'UsePreviousValue': True})
-    vpc_parameters.append({'ParameterKey': 'IGWCidrBlock1', 'ParameterValue': '10.0.0.0/20', 'UsePreviousValue': True})
-    vpc_parameters.append({'ParameterKey': 'IGWCidrBlock2', 'ParameterValue': '10.0.16.0/20', 'UsePreviousValue': True})
-    vpc_parameters.append({'ParameterKey': 'IGWCidrBlock3', 'ParameterValue': '10.0.32.0/20', 'UsePreviousValue': True})
-    vpc_parameters.append({'ParameterKey': 'PrivateCidrBlock1', 'ParameterValue': '10.0.48.0/20', 'UsePreviousValue': True})
-    vpc_parameters.append({'ParameterKey': 'PrivateCidrBlock2', 'ParameterValue': '10.0.64.0/20', 'UsePreviousValue': True})
-    vpc_parameters.append({'ParameterKey': 'PrivateCidrBlock3', 'ParameterValue': '10.0.80.0/20', 'UsePreviousValue': True})
-    vpc_parameters.append({'ParameterKey': 'AvailabilityZone1', 'ParameterValue': region + 'a', 'UsePreviousValue': True})
-    vpc_parameters.append({'ParameterKey': 'AvailabilityZone2', 'ParameterValue': region + 'b', 'UsePreviousValue': True})
-    vpc_parameters.append({'ParameterKey': 'AvailabilityZone3', 'ParameterValue': region + 'c', 'UsePreviousValue': True})
-    vpc_parameters.append({'ParameterKey': 'WorkshopName', 'ParameterValue': workshop_name, 'UsePreviousValue': True})
+    vpc_parameters = [
+        {
+            'ParameterKey': 'BastionCidrIp',
+            'ParameterValue': '0.0.0.0/0',
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'VPCCidrBlock',
+            'ParameterValue': '10.0.0.0/16',
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'IGWCidrBlock1',
+            'ParameterValue': '10.0.0.0/20',
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'IGWCidrBlock2',
+            'ParameterValue': '10.0.16.0/20',
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'IGWCidrBlock3',
+            'ParameterValue': '10.0.32.0/20',
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'PrivateCidrBlock1',
+            'ParameterValue': '10.0.48.0/20',
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'PrivateCidrBlock2',
+            'ParameterValue': '10.0.64.0/20',
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'PrivateCidrBlock3',
+            'ParameterValue': '10.0.80.0/20',
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'AvailabilityZone1',
+            'ParameterValue': f'{region}a',
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'AvailabilityZone2',
+            'ParameterValue': f'{region}b',
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'AvailabilityZone3',
+            'ParameterValue': f'{region}c',
+            'UsePreviousValue': True,
+        },
+        {
+            'ParameterKey': 'WorkshopName',
+            'ParameterValue': workshop_name,
+            'UsePreviousValue': True,
+        },
+    ]
+
     print(vpc_parameters)
     stack_tags = []
 
-    vpc_template_s3_url = "https://s3." + cfn_region + ".amazonaws.com/" + bucket + "/" + key_prefix + "three_az_vpc_sg_nat.json"
+    vpc_template_s3_url = f"https://s3.{cfn_region}.amazonaws.com/{bucket}/{key_prefix}three_az_vpc_sg_nat.json"
+
     print(vpc_template_s3_url)
-    stack_tags = []
-    stack_tags.append({'Key': 'Workshop', 'Value': 'AWSWellArchitectedReliability' + workshop_name})
+    stack_tags = [
+        {
+            'Key': 'Workshop',
+            'Value': f'AWSWellArchitectedReliability{workshop_name}',
+        }
+    ]
 
     # Create CloudFormation client
     cf_client = boto3.client('cloudformation', region_name=region)
@@ -133,13 +188,12 @@ def deploy_vpc(event):
         ]
     )
 
-    return_dict = {'stackname': stackname}
-    return return_dict
+    return {'stackname': stackname}
 
 
 def check_stack(region, stack_name):
     # Create CloudFormation client
-    logger.debug("Running function check_stack in region " + region)
+    logger.debug(f"Running function check_stack in region {region}")
     client = boto3.client('cloudformation', region)
 
     # See if you can retrieve the stack
@@ -147,21 +201,25 @@ def check_stack(region, stack_name):
         stack_response = client.describe_stacks(StackName=stack_name)
         stack_list = stack_response['Stacks']
         if (len(stack_list) < 1):
-            logger.debug("No Stack named " + stack_name)
+            logger.debug(f"No Stack named {stack_name}")
             return False
-        logger.debug("Found stack named " + stack_name)
+        logger.debug(f"Found stack named {stack_name}")
         logger.debug("Status: " + stack_list[0]['StackStatus'])
         return True
     except ClientError as e:
-        #  If the exception is that it doesn't exist, then check the client error before returning a value
-        if(e.response['Error']['Code'] == 'ValidationError'):
+        if (e.response['Error']['Code'] == 'ValidationError'):
             return False
-        else:
-            logger.debug("Stack will not be created: Unexpected exception found looking for stack named " + stack_name)
-            logger.debug("Client error:" + str(e.response))
-            return True
+        logger.debug(
+            f"Stack will not be created: Unexpected exception found looking for stack named {stack_name}"
+        )
+
+        logger.debug(f"Client error:{str(e.response)}")
+        return True
     except Exception:
-        logger.debug("Stack will not be created: Unexpected exception found looking for stack named " + stack_name)
+        logger.debug(
+            f"Stack will not be created: Unexpected exception found looking for stack named {stack_name}"
+        )
+
         logger.debug("Stack Trace:", traceback.format_exc())
         return True
 
@@ -176,20 +234,19 @@ def lambda_handler(event, context):
     logger.info('event:')
     logger.info(json.dumps(event))
     if (context != 0):
-        logger.info('context.log_stream_name:' + context.log_stream_name)
-        logger.info('context.log_group_name:' + context.log_group_name)
-        logger.info('context.aws_request_id:' + context.aws_request_id)
+        logger.info(f'context.log_stream_name:{context.log_stream_name}')
+        logger.info(f'context.log_group_name:{context.log_group_name}')
+        logger.info(f'context.aws_request_id:{context.aws_request_id}')
     else:
         logger.info("No Context Object!")
     process_global_vars()
 
     if not check_stack(event['region_name'], stackname):
-        logger.debug("Stack " + stackname + " doesn't exist; creating")
+        logger.debug(f"Stack {stackname}" + " doesn't exist; creating")
         return deploy_vpc(event)
     else:
-        logger.debug("Stack " + stackname + " exists")
-        return_dict = {'stackname': stackname}
-        return return_dict
+        logger.debug(f"Stack {stackname} exists")
+        return {'stackname': stackname}
 
     # except SystemExit:
     #     logger.error("Exiting")

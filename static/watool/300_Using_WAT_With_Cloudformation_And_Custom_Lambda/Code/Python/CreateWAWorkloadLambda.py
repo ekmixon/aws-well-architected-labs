@@ -21,10 +21,7 @@ logger = Logger()
 # Helper class to convert a datetime item to JSON.
 class DateTimeEncoder(json.JSONEncoder):
     def default(self, z):
-        if isinstance(z, datetime.datetime):
-            return (str(z))
-        else:
-            return super().default(z)
+        return (str(z)) if isinstance(z, datetime.datetime) else super().default(z)
 
 def CreateNewWorkload(
     waclient,
@@ -50,15 +47,18 @@ def CreateNewWorkload(
         )
     except waclient.exceptions.ConflictException as e:
         workloadId,workloadARN = FindWorkload(waclient,workloadName)
-        logger.warning("WARNING - The workload name %s already exists as workloadId %s" % (workloadName, workloadId))
+        logger.warning(
+            f"WARNING - The workload name {workloadName} already exists as workloadId {workloadId}"
+        )
+
         UpdateWorkload(waclient,workloadId,workloadARN, workloadName,description,reviewOwner,environment,awsRegions,lenses,tags)
 
-        # Maybe we should "update" the above variables?
+            # Maybe we should "update" the above variables?
 
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
 
 def FindWorkload(
@@ -72,9 +72,9 @@ def FindWorkload(
         WorkloadNamePrefix=workloadName
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
     # print("Full JSON:",json.dumps(response['WorkloadSummaries'], cls=DateTimeEncoder))
     workloadId = response['WorkloadSummaries'][0]['WorkloadId']
@@ -107,18 +107,18 @@ def UpdateWorkload(
         AwsRegions=awsRegions,
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
     # Should add updates for the lenses?
     # Should add the tags as well
     logger.info("Updating workload tags")
     try:
         waclient.tag_resource(WorkloadArn=workloadARN,Tags=tags)
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
 
 
@@ -126,7 +126,10 @@ def lambda_handler(event, context):
     boto3_min_version = "1.16.38"
     # Verify if the version of Boto3 we are running has the wellarchitected APIs included
     if (packaging.version.parse(boto3.__version__) < packaging.version.parse(boto3_min_version)):
-        logger.error("Your Boto3 version (%s) is less than %s. You must ugprade to run this script (pip3 upgrade boto3)" % (boto3.__version__, boto3_min_version))
+        logger.error(
+            f"Your Boto3 version ({boto3.__version__}) is less than {boto3_min_version}. You must ugprade to run this script (pip3 upgrade boto3)"
+        )
+
         exit()
     responseData = {}
     # print(json.dumps(event))
@@ -148,7 +151,7 @@ def lambda_handler(event, context):
     REGION_NAME = IncomingARN[3]
 
 
-    logger.info("Starting Boto %s Session in %s" % (boto3.__version__, REGION_NAME))
+    logger.info(f"Starting Boto {boto3.__version__} Session in {REGION_NAME}")
     # Create a new boto3 session
     SESSION = boto3.session.Session()
     # Initiate the well-architected session using the region defined above
@@ -161,9 +164,9 @@ def lambda_handler(event, context):
     CreateNewWorkload(WACLIENT,WORKLOADNAME,DESCRIPTION,REVIEWOWNER,ENVIRONMENT,AWSREGIONS,LENSES,TAGS)
     logger.info("Finding your WorkloadId")
     workloadId,workloadARN = FindWorkload(WACLIENT,WORKLOADNAME)
-    logger.info("New workload created with id %s" % workloadId)
+    logger.info(f"New workload created with id {workloadId}")
     responseData['WorkloadId'] = workloadId
     responseData['WorkloadARN'] = workloadARN
-    logger.info("Response will be %s" % responseData)
+    logger.info(f"Response will be {responseData}")
 
     cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData)

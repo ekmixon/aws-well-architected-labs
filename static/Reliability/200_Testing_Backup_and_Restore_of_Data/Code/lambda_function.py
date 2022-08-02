@@ -6,15 +6,15 @@ import urllib3
 backup = boto3.client('backup')
 
 def lambda_handler(event, context):
-    print('Incoming Event:' + json.dumps(event))
+    print(f'Incoming Event:{json.dumps(event)}')
 
     try:
         if event['Records'][0]['Sns']['Subject'] == 'Restore Test Status':
             print('No action required, deletion of new resource confirmed.')
             return
     except Exception as e:
-            print(str(e))
-            return
+        print(e)
+        return
 
     job_type = event['Records'][0]['Sns']['Message'].split('.')[-1].split(' ')[1]
 
@@ -90,7 +90,7 @@ def lambda_handler(event, context):
 
                 # Include recovery validation checks for DynamoDB here
 
-                print('Deleting: ' + table_name)
+                print(f'Deleting: {table_name}')
                 delete_request = dynamo.delete_table(
                                     TableName=table_name
                                 )
@@ -102,7 +102,7 @@ def lambda_handler(event, context):
 
                     # Include recovery validation checks for EBS here
 
-                    print('Deleting: ' + volume_id)
+                    print(f'Deleting: {volume_id}')
                     delete_request = ec2.delete_volume(
                                 VolumeId=volume_id
                             )
@@ -127,7 +127,7 @@ def lambda_handler(event, context):
 
                         if resp.status == 200:
                             print('Valid response received. Data recovery validated. Proceeding with deletion.')
-                            print('Deleting: ' + instance_id)
+                            print(f'Deleting: {instance_id}')
                             delete_request = ec2.terminate_instances(
                                         InstanceIds=[
                                             instance_id
@@ -136,17 +136,22 @@ def lambda_handler(event, context):
                             message = 'Restore from ' + restore_info['RecoveryPointArn'] + ' was successful. Data recovery validation succeeded with HTTP ' + str(resp.status) + ' returned by the application. ' + 'The newly created resource ' + restore_info['CreatedResourceArn'] + ' has been cleaned up.'
                         else:
                             print('Invalid response. Validation FAILED.')
-                            message = 'Invalid response received: HTTP ' + str(resp.status) + '. Data Validation FAILED. New resource ' + restore_info['CreatedResourceArn'] + ' has NOT been cleaned up.'
+                            message = (
+                                f'Invalid response received: HTTP {str(resp.status)}. Data Validation FAILED. New resource '
+                                + restore_info['CreatedResourceArn']
+                                + ' has NOT been cleaned up.'
+                            )
+
                     except Exception as e:
-                        print(str(e))
-                        message = 'Error connecting to the application: ' + str(e)
+                        print(e)
+                        message = f'Error connecting to the application: {str(e)}'
             elif resource_type == 'rds':
                 rds = boto3.client('rds')
                 database_identifier = restore_info['CreatedResourceArn'].split(':')[6]
 
                 # Include recovery validation checks for RDS here
 
-                print('Deleting: ' + database_identifier)
+                print(f'Deleting: {database_identifier}')
                 delete_request = rds.delete_db_instance(
                             DBInstanceIdentifier=database_identifier,
                             SkipFinalSnapshot=True
@@ -157,7 +162,7 @@ def lambda_handler(event, context):
 
                 # Include recovery validation checks for EFS here
 
-                print('Deleting: ' + elastic_file_system)
+                print(f'Deleting: {elastic_file_system}')
                 delete_request = efs.delete_file_system(
                             FileSystemId=elastic_file_system
                         )
@@ -176,5 +181,5 @@ def lambda_handler(event, context):
 
             return
     except Exception as e:
-        print(str(e))
+        print(e)
         return

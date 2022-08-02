@@ -10,7 +10,7 @@ dynamodb = boto3.client('dynamodb')
 def lambda_handler(event, context):
 
     #Print the incoming event
-    print('Incoming Event:' + json.dumps(event))
+    print(f'Incoming Event:{json.dumps(event)}')
 
     #Get OpsItem ID from incoming event
     opsItem_id = event['Records'][0]['Sns']['Subject']

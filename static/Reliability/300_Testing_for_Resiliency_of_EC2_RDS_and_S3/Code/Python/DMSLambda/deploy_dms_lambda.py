@@ -85,12 +85,14 @@ def process_global_vars():
 
 
 def find_in_outputs(outputs, key_to_find):
-    output_string = None
-    for output in outputs:
-        if (output['OutputKey'] == key_to_find):
-            output_string = output['OutputValue']
-            break
-    return output_string
+    return next(
+        (
+            output['OutputValue']
+            for output in outputs
+            if (output['OutputKey'] == key_to_find)
+        ),
+        None,
+    )
 
 
 def get_db_password(db_region, parameter_name):

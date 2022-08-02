@@ -11,7 +11,7 @@ dynamodb = boto3.client('dynamodb')
 
 def lambda_handler(event, context):
     #Print the incoming event
-    print('Incoming Event:' + json.dumps(event))
+    print(f'Incoming Event:{json.dumps(event)}')
 
     #Get a list of workloads from the WA Tool
     workloads = list_workloads()
@@ -29,7 +29,7 @@ def lambda_handler(event, context):
         print(workload_name, hri_count, mri_count)
 
         if hri_count == 0 and mri_count == 0:
-            print('No risks identified for workload: ' + workload_name)
+            print(f'No risks identified for workload: {workload_name}')
             continue
 
         # Get a list of improvements for workload
@@ -45,7 +45,7 @@ def lambda_handler(event, context):
             risk = improvements[improvement]['Risk']
             improvement_plan = improvements[improvement]['ImprovementPlanUrl']
 
-            if risk == 'HIGH' or risk == 'MEDIUM':
+            if risk in ['HIGH', 'MEDIUM']:
                 get_answer_response = wa.get_answer(
                     WorkloadId=workload,
                     LensAlias='wellarchitected',
@@ -58,11 +58,11 @@ def lambda_handler(event, context):
                 htmlStr = htmlBytes.decode("utf8")
                 htmlSplit = htmlStr.split('\n')
 
-                # Get the best practices selected for a question
-                selected_choices = []
                 choice_answers = get_answer_response['Answer']['ChoiceAnswers']
-                for choice_answer in choice_answers:
-                    selected_choices.append(choice_answer['ChoiceId'])
+                selected_choices = [
+                    choice_answer['ChoiceId']
+                    for choice_answer in choice_answers
+                ]
 
                 # Get choice ID for option 'None of these'
                 for bp_choice in get_answer_response['Answer']['Choices']:

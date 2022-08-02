@@ -21,10 +21,7 @@ logger = Logger()
 # Helper class to convert a datetime item to JSON.
 class DateTimeEncoder(json.JSONEncoder):
     def default(self, z):
-        if isinstance(z, datetime.datetime):
-            return (str(z))
-        else:
-            return super().default(z)
+        return (str(z)) if isinstance(z, datetime.datetime) else super().default(z)
 
 def findQuestionId(
     waclient,
@@ -42,16 +39,17 @@ def findQuestionId(
         PillarId=pillarId
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
     answers = response['AnswerSummaries']
     while "NextToken" in response:
         response = waclient.list_answers(WorkloadId=workloadId,LensAlias=lensAlias,PillarId=pillarId,NextToken=response["NextToken"])
         answers.extend(response["AnswerSummaries"])
 
-    jmesquery = "[?starts_with(QuestionTitle, `"+questionTitle+"`) == `true`].QuestionId"
+    jmesquery = f"[?starts_with(QuestionTitle, `{questionTitle}`) == `true`].QuestionId"
+
     questionId = jmespath.search(jmesquery, answers)
 
     return questionId[0]
@@ -72,11 +70,12 @@ def findChoiceId(
         QuestionId=questionId
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
-    jmesquery = "Answer.Choices[?starts_with(Title, `"+choiceTitle+"`) == `true`].ChoiceId"
+    jmesquery = f"Answer.Choices[?starts_with(Title, `{choiceTitle}`) == `true`].ChoiceId"
+
     choiceId = jmespath.search(jmesquery, response)
 
     return choiceId[0]
@@ -100,20 +99,22 @@ def updateAnswersForQuestion(
         Notes=notes
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
     # print(json.dumps(response))
     jmesquery = "Answer.SelectedChoices"
-    answers = jmespath.search(jmesquery, response)
-    return answers
+    return jmespath.search(jmesquery, response)
 
 def lambda_handler(event, context):
     boto3_min_version = "1.16.38"
     # Verify if the version of Boto3 we are running has the wellarchitected APIs included
     if (packaging.version.parse(boto3.__version__) < packaging.version.parse(boto3_min_version)):
-        logger.error("Your Boto3 version (%s) is less than %s. You must ugprade to run this script (pip3 upgrade boto3)" % (boto3.__version__, boto3_min_version))
+        logger.error(
+            f"Your Boto3 version ({boto3.__version__}) is less than {boto3_min_version}. You must ugprade to run this script (pip3 upgrade boto3)"
+        )
+
         exit()
     responseData = {}
     print(json.dumps(event))
@@ -131,7 +132,7 @@ def lambda_handler(event, context):
     REGION_NAME = IncomingARN[3]
 
 
-    logger.info("Starting Boto %s Session in %s" % (boto3.__version__, REGION_NAME))
+    logger.info(f"Starting Boto {boto3.__version__} Session in {REGION_NAME}")
     # Create a new boto3 session
     SESSION = boto3.session.Session()
     # Initiate the well-architected session using the region defined above
@@ -146,11 +147,15 @@ def lambda_handler(event, context):
             # First we must find the questionID
             questionId = findQuestionId(WACLIENT,WORKLOADID,LENS,PILLAR,question)
             logger.info("Found QuestionID of '%s' for the question text of '%s'" % (questionId, question))
-            choiceSet = []
-            # Now we build the choice selection based on the answers provided
-            for answers in answerList:
-                choiceSet.append(findChoiceId(WACLIENT,WORKLOADID,LENS,questionId,answers))
-            logger.info("All choices we will select for questionId of %s is %s" % (questionId, choiceSet))
+            choiceSet = [
+                findChoiceId(WACLIENT, WORKLOADID, LENS, questionId, answers)
+                for answers in answerList
+            ]
+
+            logger.info(
+                f"All choices we will select for questionId of {questionId} is {choiceSet}"
+            )
+
             # Update the answer for the question
             updateAnswersForQuestion(WACLIENT,WORKLOADID,LENS,questionId,choiceSet,'Added by Python')
     # exit()

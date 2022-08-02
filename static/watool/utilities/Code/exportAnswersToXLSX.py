@@ -101,10 +101,7 @@ PILLAR_PROPER_NAME_MAP = {
 # Helper class to convert a datetime item to JSON.
 class DateTimeEncoder(json.JSONEncoder):
     def default(self, z):
-        if isinstance(z, datetime.datetime):
-            return (str(z))
-        else:
-            return super().default(z)
+        return (str(z)) if isinstance(z, datetime.datetime) else super().default(z)
 
 def CreateNewWorkload(
     waclient,
@@ -141,12 +138,15 @@ def CreateNewWorkload(
         )
     except waclient.exceptions.ConflictException as e:
         workloadId,workloadARN = FindWorkload(waclient,workloadName)
-        logger.error("ERROR - The workload name %s already exists as workloadId %s" % (workloadName, workloadId))
+        logger.error(
+            f"ERROR - The workload name {workloadName} already exists as workloadId {workloadId}"
+        )
+
         return workloadId, workloadARN
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
     workloadId = response['WorkloadId']
     workloadARN = response['WorkloadArn']
@@ -162,9 +162,9 @@ def FindWorkload(
         WorkloadNamePrefix=workloadName
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
     # print("Full JSON:",json.dumps(response['WorkloadSummaries'], cls=DateTimeEncoder))
     workloadId = response['WorkloadSummaries'][0]['WorkloadId']
@@ -183,9 +183,9 @@ def DeleteWorkload(
         WorkloadId=workloadId
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
 def GetWorkload(
     waclient,
@@ -198,15 +198,13 @@ def GetWorkload(
         WorkloadId=workloadId
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
         exit()
 
-    # print("Full JSON:",json.dumps(response['Workload'], cls=DateTimeEncoder))
-    workload = response['Workload']
     # print("WorkloadId",workloadId)
-    return workload
+    return response['Workload']
 
 def listLens(
     waclient
@@ -215,14 +213,11 @@ def listLens(
     try:
         response=waclient.list_lenses()
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
-    # print(json.dumps(response))
-    lenses = jmespath.search("LensSummaries[*].LensAlias", response)
-
-    return lenses
+    return jmespath.search("LensSummaries[*].LensAlias", response)
 
 def getCurrentLensVersion(
     waclient,
@@ -233,12 +228,12 @@ def getCurrentLensVersion(
     try:
         response=waclient.list_lenses()
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
     # print(json.dumps(response))
-    searchString = "LensSummaries[?LensAlias==`"+lensAlias+"`].LensVersion"
+    searchString = f"LensSummaries[?LensAlias==`{lensAlias}`].LensVersion"
     lenses = jmespath.search(searchString, response)
 
     return lenses[0]
@@ -253,7 +248,7 @@ def findAllQuestionId(
     # Due to a bug in some lenses, I have to iterate over each pillar in order to
     # retrieve the correct results.
     for pillar in PILLAR_PARSE_MAP:
-        logger.debug("Grabbing answers for %s %s" % (lensAlias, pillar))
+        logger.debug(f"Grabbing answers for {lensAlias} {pillar}")
         # Find a questionID using the questionTitle
         try:
             response=waclient.list_answers(
@@ -262,18 +257,18 @@ def findAllQuestionId(
             PillarId=pillar
             )
         except botocore.exceptions.ParamValidationError as e:
-            logger.error("ERROR - Parameter validation error: %s" % e)
+            logger.error(f"ERROR - Parameter validation error: {e}")
         except botocore.exceptions.ClientError as e:
-            logger.error("ERROR - Unexpected error: %s" % e)
+            logger.error(f"ERROR - Unexpected error: {e}")
 
         answers.extend(response["AnswerSummaries"])
         while "NextToken" in response:
             try:
                 response = waclient.list_answers(WorkloadId=workloadId,LensAlias=lensAlias,PillarId=pillar,NextToken=response["NextToken"])
             except botocore.exceptions.ParamValidationError as e:
-                logger.error("ERROR - Parameter validation error: %s" % e)
+                logger.error(f"ERROR - Parameter validation error: {e}")
             except botocore.exceptions.ClientError as e:
-                logger.error("ERROR - Unexpected error: %s" % e)
+                logger.error(f"ERROR - Unexpected error: {e}")
             answers.extend(response["AnswerSummaries"])
     return answers
 
@@ -292,9 +287,9 @@ def getQuestionDetails(
         QuestionId=questionId
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
 
 
@@ -324,14 +319,13 @@ def updateAnswersForQuestion(
         Notes=notes
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
     # print(json.dumps(response))
     jmesquery = "Answer.SelectedChoices"
-    answers = jmespath.search(jmesquery, response)
-    return answers
+    return jmespath.search(jmesquery, response)
 
 def getImprovementPlanItems(
     waclient,
@@ -355,7 +349,7 @@ def getImprovementPlanItems(
         for uq in ChoiceList:
             if uq in line:
                 parsed = BeautifulSoup(line,features="html.parser")
-                ipHTMLList.update({uq: str(parsed.a['href'])})
+                ipHTMLList[uq] = str(parsed.a['href'])
     return ipHTMLList
 
 def getImprovementPlanHTMLDescription(
@@ -363,20 +357,19 @@ def getImprovementPlanHTMLDescription(
     PillarId
     ):
 
-    logger.debug("ImprovementPlanUrl: %s for pillar %s " % (ImprovementPlanUrl,PILLAR_PARSE_MAP[PillarId]))
+    logger.debug(
+        f"ImprovementPlanUrl: {ImprovementPlanUrl} for pillar {PILLAR_PARSE_MAP[PillarId]} "
+    )
+
     stepRaw = ImprovementPlanUrl.rsplit('#')[1]
 
     # Grab the number of the step we are referencing
     # This will work as long as their are less than 99 steps.
-    if len(stepRaw) <= 5:
-        stepNumber = stepRaw[-1]
-    else:
-        stepNumber = stepRaw[-2]
-
+    stepNumber = stepRaw[-1] if len(stepRaw) <= 5 else stepRaw[-2]
     #Generate the string for the step number
-    firstItem = "step"+stepNumber
-    secondItem = ("step"+str((int(stepNumber)+1)))
-    logger.debug ("Going from %s to %s" % (firstItem, secondItem))
+    firstItem = f"step{stepNumber}"
+    secondItem = f"step{str(int(stepNumber)+1)}"
+    logger.debug(f"Going from {firstItem} to {secondItem}")
     urlresponse = urllib.request.urlopen(ImprovementPlanUrl)
     htmlBytes = urlresponse.read()
     htmlStr = htmlBytes.decode("utf8")

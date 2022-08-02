@@ -83,12 +83,14 @@ def process_global_vars():
 
 
 def find_in_parameters(parameters, key_to_find):
-    parameters_string = None
-    for parameter in parameters:
-        if (parameter['ParameterKey'] == key_to_find):
-            parameters_string = parameter['ParameterValue']
-            break
-    return parameters_string
+    return next(
+        (
+            parameter['ParameterValue']
+            for parameter in parameters
+            if (parameter['ParameterKey'] == key_to_find)
+        ),
+        None,
+    )
 
 
 def update_rds(event):
@@ -102,17 +104,15 @@ def update_rds(event):
     client = boto3.client('cloudformation', region)
 
     # Prepare the stack parameters
-    rds_parameters = []
+    rds_parameters = [
+        {'ParameterKey': 'DBMultiAZ', 'ParameterValue': "true"},
+        {'ParameterKey': 'DBSubnetIds', 'UsePreviousValue': True},
+        {'ParameterKey': 'DBSecurityGroups', 'UsePreviousValue': True},
+        {'ParameterKey': 'DBUser', 'UsePreviousValue': True},
+        {'ParameterKey': 'WorkshopName', 'UsePreviousValue': True},
+        {'ParameterKey': 'DBInstanceClass', 'UsePreviousValue': True},
+    ]
 
-    # We are now setting DBMultiAZ = "true" to update the stack
-    rds_parameters.append({'ParameterKey': 'DBMultiAZ', 'ParameterValue': "true"})
-
-    # Every other parameter will use its previous value
-    rds_parameters.append({'ParameterKey': 'DBSubnetIds', 'UsePreviousValue': True})
-    rds_parameters.append({'ParameterKey': 'DBSecurityGroups', 'UsePreviousValue': True})
-    rds_parameters.append({'ParameterKey': 'DBUser', 'UsePreviousValue': True})
-    rds_parameters.append({'ParameterKey': 'WorkshopName', 'UsePreviousValue': True})
-    rds_parameters.append({'ParameterKey': 'DBInstanceClass', 'UsePreviousValue': True})
 
     # for the update we use the SAME template as we used to create the RDS
     client.update_stack(
@@ -120,8 +120,7 @@ def update_rds(event):
         UsePreviousTemplate=True,
         Parameters=rds_parameters
     )
-    return_dict = {'stackname': stackname}
-    return return_dict
+    return {'stackname': stackname}
 
 
 def get_stack(client, stack_name):
@@ -129,11 +128,10 @@ def get_stack(client, stack_name):
     logger.debug("stack_response: \n" + str(stack_response))
 
     try:
-        stack = stack_response['Stacks'][0]
         #logger.debug("stack: " + str(stack))
-        return stack
+        return stack_response['Stacks'][0]
     except Exception:
-        logger.error("Expected Stack, but none found " + stack_name)
+        logger.error(f"Expected Stack, but none found {stack_name}")
         logger.error("Stack Trace:", traceback.format_exc())
         sys.exit(1)
 
@@ -144,44 +142,53 @@ def wait_for_stack_complete(client, stack_name):
 
     stack = get_stack(client, stack_name)
     status = stack['StackStatus']
-    logger.debug("Stack status: " + status)
+    logger.debug(f"Stack status: {status}")
 
     i = 0
 
     try:
-      while (not status_complete(status)) and i<num_waits:
-        logger.debug("status is " + status + ".  Waiting " + str(wait_secs) + "s")
-        sleep(wait_secs)
-        stack = get_stack(client, stack_name)
-        status = stack['StackStatus']
-        i += 1
+        while (not status_complete(status)) and i<num_waits:
+            logger.debug(f"status is {status}.  Waiting {wait_secs}s")
+            sleep(wait_secs)
+            stack = get_stack(client, stack_name)
+            status = stack['StackStatus']
+            i += 1
     except Exception:
-      logger.error("Failed while waiting for stack to complete.  stackname: " + stack_name + ";  status: " + status)
+        logger.error(
+            f"Failed while waiting for stack to complete.  stackname: {stack_name};  status: {status}"
+        )
+
 
     if status_complete(status):
         return stack
-    else:
-        logger.error ("Cannot update RDS stack to multi-AZ because status is: " + status)
-        sys.exit(1)
+    logger.error(
+        f"Cannot update RDS stack to multi-AZ because status is: {status}"
+    )
+
+    sys.exit(1)
 
 
 def status_complete(status):
-    return status == 'UPDATE_COMPLETE' or status == 'CREATE_COMPLETE' or status == 'UPDATE_ROLLBACK_COMPLETE'
+    return status in [
+        'UPDATE_COMPLETE',
+        'CREATE_COMPLETE',
+        'UPDATE_ROLLBACK_COMPLETE',
+    ]
 
 # This function checks the CloudFormation Parameter to determine if 
 # single or multi AZ RDS has been deployed.
 # It may be more precise to check RDS itself, but this saves the round-trip
 def is_single_az(region, stack_name):
     # Create CloudFormation client
-    logger.debug("Running function is_single_az in region " + region)
+    logger.debug(f"Running function is_single_az in region {region}")
     client = boto3.client('cloudformation', region)
 
     # See if we can retrieve the stack
     try:
 
         stack = get_stack(client, stack_name)
-        
-        logger.debug("Stack Name: " + stack_name)
+
+        logger.debug(f"Stack Name: {stack_name}")
         logger.debug("Stack Status: " + stack['StackStatus'])
 
         if not status_complete(stack['StackStatus']):
@@ -193,22 +200,28 @@ def is_single_az(region, stack_name):
         is_multi_az = find_in_parameters(rds_parameters, 'DBMultiAZ')
 
         if is_multi_az is None:
-          logger.error("Unable to find parameter DBMultiAZ in stack " + stack_name)
-          return False
+            logger.error(f"Unable to find parameter DBMultiAZ in stack {stack_name}")
+            return False
 
-        logger.debug("is_multi_az: " + is_multi_az)
+        logger.debug(f"is_multi_az: {is_multi_az}")
 
         # Single AZ is boolean opposite if multi AZ
         return is_multi_az == "false"
 
     except ClientError as e:
-        logger.debug("Stack will not be updated: Unexpected exception found looking for stack named " + stack_name)
-        logger.debug("Client error:" + str(e.response))
+        logger.debug(
+            f"Stack will not be updated: Unexpected exception found looking for stack named {stack_name}"
+        )
+
+        logger.debug(f"Client error:{str(e.response)}")
         return False
 
     except Exception:
-        logger.debug("Stack will not be updated: Unexpected exception found looking for stack named " + stack_name)
-        logger.debug("Stack Trace: " + traceback.format_exc())
+        logger.debug(
+            f"Stack will not be updated: Unexpected exception found looking for stack named {stack_name}"
+        )
+
+        logger.debug(f"Stack Trace: {traceback.format_exc()}")
         return False
 
 
@@ -222,9 +235,9 @@ def lambda_handler(event, context):
     logger.info('event:')
     logger.info(json.dumps(event))
     if (context != 0):
-        logger.info('context.log_stream_name:' + context.log_stream_name)
-        logger.info('context.log_group_name:' + context.log_group_name)
-        logger.info('context.aws_request_id:' + context.aws_request_id)
+        logger.info(f'context.log_stream_name:{context.log_stream_name}')
+        logger.info(f'context.log_group_name:{context.log_group_name}')
+        logger.info(f'context.aws_request_id:{context.aws_request_id}')
     else:
         logger.info("No Context Object!")
     process_global_vars()
@@ -237,18 +250,23 @@ def lambda_handler(event, context):
         if (status_complete(rds_stack_status)):
             # If RDS is single-AZ, this update will make it multi-AZ
             if is_single_az(event['region_name'], stackname):
-                logger.debug("Stack " + stackname + " is single-AZ; updating to multi-AZ")
+                logger.debug(f"Stack {stackname} is single-AZ; updating to multi-AZ")
                 return update_rds(event)
             else:
-                logger.debug("Stack " + stackname + " already multi-AZ")
-                return_dict = {'stackname': stackname}
-                return return_dict
+                logger.debug(f"Stack {stackname} already multi-AZ")
+                return {'stackname': stackname}
         else:
-            logger.debug("RDS Stack was not completely created: status = " + rds_stack_status)
+            logger.debug(
+                f"RDS Stack was not completely created: status = {rds_stack_status}"
+            )
+
             sys.exit(1)
 
     else:
-        logger.debug("VPC Stack was not completely created: status = " + vpc_stack_status)
+        logger.debug(
+            f"VPC Stack was not completely created: status = {vpc_stack_status}"
+        )
+
         sys.exit(1)
 
 

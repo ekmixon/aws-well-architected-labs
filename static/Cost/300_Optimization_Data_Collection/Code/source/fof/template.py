@@ -58,7 +58,7 @@ def start_crawler():
         glue_client.start_crawler(Name=os.environ['CRAWLER_NAME'])
     except Exception as e:
         # Send some context about this error to Lambda Logs
-        logging.warning("%s" % e)     
+        logging.warning(f"{e}")     
 
 
 def assume_role(account_id, service, region):
@@ -92,5 +92,4 @@ def lits_regions():
     from boto3.session import Session
 
     s = Session()
-    ecs_regions = s.get_available_regions('ecs')
-    return ecs_regions
+    return s.get_available_regions('ecs')

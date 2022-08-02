@@ -17,11 +17,11 @@ class DateTimeEncoder(JSONEncoder):
 def main(account_id):
     list_region = lits_regions()
     with open(
-        "/tmp/data.json", "w"
-    ) as f:  # Saving in the temporay folder in the lambda
+            "/tmp/data.json", "w"
+        ) as f:  # Saving in the temporay folder in the lambda
         for region in list_region:
             client = assume_role(account_id, "ec2", region)
-                        
+
             try:
                 response = client.describe_images(Owners=["self"])
 
@@ -35,7 +35,6 @@ def main(account_id):
                     f.write("\n")
             except Exception as e:
                 print(e)
-                pass
     
 
 
@@ -70,8 +69,7 @@ def lits_regions():
     from boto3.session import Session
 
     s = Session()
-    ecs_regions = s.get_available_regions('ecs')
-    return ecs_regions
+    return s.get_available_regions('ecs')
 
 if __name__ == "__main__":
     lambda_handler(None, None)

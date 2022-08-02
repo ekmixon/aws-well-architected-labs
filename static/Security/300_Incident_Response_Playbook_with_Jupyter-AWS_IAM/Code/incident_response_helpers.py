@@ -3,7 +3,7 @@ import time
 from datetime import datetime, timedelta
 
 def execute_log_query(log_group, query, days_to_search):
-    start_time = int((datetime.today() - timedelta(days=days_to_search)).timestamp())
+    start_time = int((datetime.now() - timedelta(days=days_to_search)).timestamp())
     end_time=int(datetime.now().timestamp())
     client = boto3.client('logs')
     start_query_response = client.start_query(logGroupName=log_group,startTime=start_time,endTime=end_time,queryString=query,)
@@ -17,7 +17,4 @@ def execute_log_query(log_group, query, days_to_search):
     return response
 
 def convert_dictionary_to_object(d):
-    o = {}
-    for f in d:
-        o[f['field']] = f['value']
-    return o
+    return {f['field']: f['value'] for f in d}

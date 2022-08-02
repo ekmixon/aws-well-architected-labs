@@ -21,7 +21,7 @@ import sys
 import os
 
 if len(sys.argv) < 2:
- print("Usage: " + sys.argv[0] + " <vpc-id>")
+ print(f"Usage: {sys.argv[0]} <vpc-id>")
  os._exit(os.EX_DATAERR)
 
 rds = boto3.client('rds')
@@ -29,7 +29,6 @@ vpc_info = sys.argv[1]
 try:
 # get all of the RDS db instances
   dbs = rds.describe_db_instances()
-
 # only fail over the first instance
   for db in dbs['DBInstances']:
 

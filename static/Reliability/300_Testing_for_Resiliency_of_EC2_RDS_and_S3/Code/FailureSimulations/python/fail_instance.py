@@ -23,7 +23,7 @@ import os
 ec2 = boto3.resource('ec2')
 
 if len(sys.argv) < 2:
-    print("Usage: " + sys.argv[0] + " <vpc-id>")
+    print(f"Usage: {sys.argv[0]} <vpc-id>")
     os._exit(os.EX_DATAERR)
 
 

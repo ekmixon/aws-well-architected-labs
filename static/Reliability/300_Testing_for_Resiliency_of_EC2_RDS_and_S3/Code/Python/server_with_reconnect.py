@@ -45,14 +45,15 @@ class RequestHandler(BaseHTTPRequestHandler):
             link = "data"
             try:
                 message_parts = [
-                    'account_id: %s' % ec2_metadata.account_id,
-                    'ami_id: %s' % ec2_metadata.ami_id,
-                    'availability_zone: %s' % ec2_metadata.availability_zone,
-                    'instance_id: %s' % ec2_metadata.instance_id,
-                    'instance_type: %s' % ec2_metadata.instance_type,
-                    'private_hostname: %s' % ec2_metadata.private_hostname,
-                    'private_ipv4: %s' % ec2_metadata.private_ipv4
+                    f'account_id: {ec2_metadata.account_id}',
+                    f'ami_id: {ec2_metadata.ami_id}',
+                    f'availability_zone: {ec2_metadata.availability_zone}',
+                    f'instance_id: {ec2_metadata.instance_id}',
+                    f'instance_type: {ec2_metadata.instance_type}',
+                    f'private_hostname: {ec2_metadata.private_hostname}',
+                    f'private_ipv4: {ec2_metadata.private_ipv4}',
                 ]
+
                 message = '<br>'.join(message_parts)
             except Exception:
                 message = "Running outside AWS"
@@ -78,7 +79,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             for row in results:
                 ip = row[0]
                 time = row[1]
-                message.append("ip = %s   time = %s" % (ip, time))
+                message.append(f"ip = {ip}   time = {time}")
             msg = '<br>'.join(message)
             self.send_response(200)
             # Send headers

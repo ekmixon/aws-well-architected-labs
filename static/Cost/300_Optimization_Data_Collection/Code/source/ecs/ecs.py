@@ -14,17 +14,17 @@ def lambda_handler(event, context):
     DestinationPrefix = os.environ["PREFIX"]
     try:
         for record in event['Records']:
-           
+                   
             account_id = record["body"]
-            
+
             print(account_id)
             list_region = lits_regions()
             with open(
-                    "/tmp/data.json", "w"
-                ) as f:  # Saving in the temporay folder in the lambda
+                                "/tmp/data.json", "w"
+                            ) as f:  # Saving in the temporay folder in the lambda
                 for region in list_region:
                     client = assume_role(account_id, "ecs", region)
-                    
+
                     paginator = client.get_paginator(
                         "list_clusters"
                     )  # Paginator for a large list of accounts
@@ -38,7 +38,7 @@ def lambda_handler(event, context):
                                 )
                                 for i in listservices["serviceArns"]:
                                     # print (i)
-                                
+
                                     services = client.describe_services(
                                         cluster=cluster.split("/")[1],
                                         services=[
@@ -67,13 +67,11 @@ def lambda_handler(event, context):
                                         f.write("\n")
                     except Exception as e:
                         print(e)
-                        pass
-                
             print("respose gathered")
             today = date.today()
             year = today.year
             month = today.month
-            
+
             client = boto3.client("s3")
             client.upload_file(
                 "/tmp/data.json",
@@ -117,5 +115,4 @@ def lits_regions():
     from boto3.session import Session
 
     s = Session()
-    ecs_regions = s.get_available_regions('ecs')
-    return ecs_regions
+    return s.get_available_regions('ecs')

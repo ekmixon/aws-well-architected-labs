@@ -19,7 +19,7 @@ def main(account_id):
             print(region)
             client = assume_role(account_id, "ec2", region)
             try:
-               
+
                 paginator = client.get_paginator('describe_volumes')
                 response_iterator = paginator.paginate()
                 for response in response_iterator:
@@ -32,7 +32,6 @@ def main(account_id):
                 print(f"{region} ebs data collected")
             except Exception as e:
                 print(e)
-                pass
 
 def assume_role(account_id, service, region):
     role_name = os.environ['ROLENAME']
@@ -65,8 +64,7 @@ def lits_regions():
     from boto3.session import Session
 
     s = Session()
-    ecs_regions = s.get_available_regions('ecs')
-    return ecs_regions
+    return s.get_available_regions('ecs')
 
 
 if __name__ == "__main__":

@@ -17,15 +17,17 @@ def send(event, context, responseStatus, responseData, physicalResourceId=None, 
     print(responseUrl)
 
     responseBody = {
-        'Status' : responseStatus,
-        'Reason' : reason or "See the details in CloudWatch Log Stream: {}".format(context.log_stream_name),
-        'PhysicalResourceId' : physicalResourceId or context.log_stream_name,
-        'StackId' : event['StackId'],
-        'RequestId' : event['RequestId'],
-        'LogicalResourceId' : event['LogicalResourceId'],
-        'NoEcho' : noEcho,
-        'Data' : responseData
+        'Status': responseStatus,
+        'Reason': reason
+        or f"See the details in CloudWatch Log Stream: {context.log_stream_name}",
+        'PhysicalResourceId': physicalResourceId or context.log_stream_name,
+        'StackId': event['StackId'],
+        'RequestId': event['RequestId'],
+        'LogicalResourceId': event['LogicalResourceId'],
+        'NoEcho': noEcho,
+        'Data': responseData,
     }
+
 
     json_responseBody = json.dumps(responseBody)
 

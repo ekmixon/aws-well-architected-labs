@@ -64,10 +64,7 @@ FROM_WORKLOADID = ARGUMENTS.workloadid
 # Helper class to convert a datetime item to JSON.
 class DateTimeEncoder(json.JSONEncoder):
     def default(self, z):
-        if isinstance(z, datetime.datetime):
-            return (str(z))
-        else:
-            return super().default(z)
+        return (str(z)) if isinstance(z, datetime.datetime) else super().default(z)
 
 def CreateNewWorkload(
     waclient,
@@ -105,8 +102,11 @@ def CreateNewWorkload(
         )
     except waclient.exceptions.ConflictException as e:
         workloadId,workloadARN = FindWorkload(waclient,workloadName)
-        logger.error("ERROR - The workload name %s already exists as workloadId %s" % (workloadName, workloadId))
-        userAnswer=input("Do You Want To Overwrite workload %s? [y/n]" % workloadId)
+        logger.error(
+            f"ERROR - The workload name {workloadName} already exists as workloadId {workloadId}"
+        )
+
+        userAnswer = input(f"Do You Want To Overwrite workload {workloadId}? [y/n]")
         if userAnswer == "y":
             logger.info("Overwriting existing workload")
             UpdateWorkload(waclient,workloadId,workloadARN, workloadName,description,reviewOwner,environment,awsRegions,lenses,tags)
@@ -115,9 +115,9 @@ def CreateNewWorkload(
             exit(1)
         return workloadId, workloadARN
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
     workloadId = response['WorkloadId']
     workloadARN = response['WorkloadArn']
@@ -148,9 +148,9 @@ def UpdateWorkload(
         AwsRegions=awsRegions,
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
     # Should add updates for the lenses?
     # Should add the tags as well
     if tags:
@@ -158,25 +158,24 @@ def UpdateWorkload(
         try:
             waclient.tag_resource(WorkloadArn=workloadARN,Tags=tags)
         except botocore.exceptions.ParamValidationError as e:
-            logger.error("ERROR - Parameter validation error: %s" % e)
+            logger.error(f"ERROR - Parameter validation error: {e}")
         except botocore.exceptions.ClientError as e:
-            logger.error("ERROR - Unexpected error: %s" % e)
+            logger.error(f"ERROR - Unexpected error: {e}")
     else:
         logger.info("Found blank tag set, removing any I find")
         try:
             tagresponse = waclient.list_tags_for_resource(WorkloadArn=workloadARN)
         except botocore.exceptions.ParamValidationError as e:
-            logger.error("ERROR - Parameter validation error: %s" % e)
+            logger.error(f"ERROR - Parameter validation error: {e}")
         except botocore.exceptions.ClientError as e:
-            logger.error("ERROR - Unexpected error: %s" % e)
-        tagkeys = list(tagresponse['Tags'])
-        if tagkeys:
+            logger.error(f"ERROR - Unexpected error: {e}")
+        if tagkeys := list(tagresponse['Tags']):
             try:
                 waclient.untag_resource(WorkloadArn=workloadARN,TagKeys=tagkeys)
             except botocore.exceptions.ParamValidationError as e:
-                logger.error("ERROR - Parameter validation error: %s" % e)
+                logger.error(f"ERROR - Parameter validation error: {e}")
             except botocore.exceptions.ClientError as e:
-                logger.error("ERROR - Unexpected error: %s" % e)
+                logger.error(f"ERROR - Unexpected error: {e}")
         else:
             logger.info("TO Workload has blank keys as well, no need to update")
 
@@ -192,9 +191,9 @@ def FindWorkload(
         WorkloadNamePrefix=workloadName
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
     # print("Full JSON:",json.dumps(response['WorkloadSummaries'], cls=DateTimeEncoder))
     workloadId = response['WorkloadSummaries'][0]['WorkloadId']
@@ -213,9 +212,9 @@ def DeleteWorkload(
         WorkloadId=workloadId
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
 def GetWorkload(
     waclient,
@@ -228,15 +227,13 @@ def GetWorkload(
         WorkloadId=workloadId
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
         exit()
 
-    # print("Full JSON:",json.dumps(response['Workload'], cls=DateTimeEncoder))
-    workload = response['Workload']
     # print("WorkloadId",workloadId)
-    return workload
+    return response['Workload']
 
 def disassociateLens(
     waclient,
@@ -251,9 +248,9 @@ def disassociateLens(
         LensAliases=lens
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
 def associateLens(
     waclient,
@@ -268,9 +265,9 @@ def associateLens(
         LensAliases=lens
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
 
 def listLens(
@@ -281,14 +278,11 @@ def listLens(
     try:
         response=waclient.list_lenses()
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
-    # print(json.dumps(response))
-    lenses = jmespath.search("LensSummaries[*].LensAlias", response)
-
-    return lenses
+    return jmespath.search("LensSummaries[*].LensAlias", response)
 
 def findQuestionId(
     waclient,
@@ -306,16 +300,17 @@ def findQuestionId(
         PillarId=pillarId
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
     answers = response['AnswerSummaries']
     while "NextToken" in response:
         response = waclient.list_answers(WorkloadId=workloadId,LensAlias=lensAlias,PillarId=pillarId,NextToken=response["NextToken"])
         answers.extend(response["AnswerSummaries"])
 
-    jmesquery = "[?starts_with(QuestionTitle, `"+questionTitle+"`) == `true`].QuestionId"
+    jmesquery = f"[?starts_with(QuestionTitle, `{questionTitle}`) == `true`].QuestionId"
+
     questionId = jmespath.search(jmesquery, answers)
 
     return questionId[0]
@@ -336,11 +331,12 @@ def findChoiceId(
         QuestionId=questionId
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
-    jmesquery = "Answer.Choices[?starts_with(Title, `"+choiceTitle+"`) == `true`].ChoiceId"
+    jmesquery = f"Answer.Choices[?starts_with(Title, `{choiceTitle}`) == `true`].ChoiceId"
+
     choiceId = jmespath.search(jmesquery, response)
 
     return choiceId[0]
@@ -360,15 +356,14 @@ def getAnswersForQuestion(
         QuestionId=questionId
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
     # print(json.dumps(response))
     jmesquery = "Answer.SelectedChoices"
-    answers = jmespath.search(jmesquery, response)
     # print(answers)
-    return answers
+    return jmespath.search(jmesquery, response)
 
 def getNotesForQuestion(
     waclient,
@@ -385,18 +380,16 @@ def getNotesForQuestion(
         QuestionId=questionId
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
     # print(json.dumps(response))
     # jmesquery = "Answer.Notes"
     # answers = jmespath.search(jmesquery, response)
     response = response['Answer']
-    answers = response['Notes'] if "Notes" in response else ""
-
     # print(answers)
-    return answers
+    return response['Notes'] if "Notes" in response else ""
 
 def updateAnswersForQuestion(
     waclient,
@@ -417,14 +410,13 @@ def updateAnswersForQuestion(
         Notes=notes
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
     # print(json.dumps(response))
     jmesquery = "Answer.SelectedChoices"
-    answers = jmespath.search(jmesquery, response)
-    return answers
+    return jmespath.search(jmesquery, response)
 
 def listMilestones(
     waclient,
@@ -438,12 +430,10 @@ def listMilestones(
         MaxResults=50 # Need to check why I am having to pass this parameter
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
-    # print("Full JSON:",json.dumps(response['MilestoneSummaries'], cls=DateTimeEncoder))
-    milestoneNumber = response['MilestoneSummaries']
-    return milestoneNumber
+        logger.error(f"ERROR - Unexpected error: {e}")
+    return response['MilestoneSummaries']
 
 def createMilestone(
     waclient,
@@ -459,14 +449,18 @@ def createMilestone(
         )
     except waclient.exceptions.ConflictException as e:
         milestones = listMilestones(waclient,workloadId)
-        jmesquery = "[?starts_with(MilestoneName,`"+milestoneName+"`) == `true`].MilestoneNumber"
+        jmesquery = f"[?starts_with(MilestoneName,`{milestoneName}`) == `true`].MilestoneNumber"
+
         milestoneNumber = jmespath.search(jmesquery,milestones)
-        logger.error("ERROR - The milestone name %s already exists as milestone %s" % (milestoneName, milestoneNumber))
+        logger.error(
+            f"ERROR - The milestone name {milestoneName} already exists as milestone {milestoneNumber}"
+        )
+
         return milestoneNumber[0]
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
     # print("Full JSON:",json.dumps(response['MilestoneSummaries'], cls=DateTimeEncoder))
     milestoneNumber = response['MilestoneNumber']
@@ -485,13 +479,11 @@ def getMilestone(
         MilestoneNumber=milestoneNumber
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
-    # print("Full JSON:",json.dumps(response['Milestone'], cls=DateTimeEncoder))
-    milestoneResponse = response['Milestone']
-    return milestoneResponse
+    return response['Milestone']
 
 def getMilestoneRiskCounts(
     waclient,
@@ -502,9 +494,7 @@ def getMilestoneRiskCounts(
     # Return just the RiskCount for a particular milestoneNumber
 
     milestone = getMilestone(waclient,workloadId,milestoneNumber)
-    # print("Full JSON:",json.dumps(milestone['Workload']['RiskCounts'], cls=DateTimeEncoder))
-    milestoneRiskCounts = milestone['Workload']['RiskCounts']
-    return milestoneRiskCounts
+    return milestone['Workload']['RiskCounts']
 
 def listAllAnswers(
     waclient,
@@ -528,9 +518,9 @@ def listAllAnswers(
             )
 
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
     answers = response['AnswerSummaries']
     while "NextToken" in response:
@@ -565,13 +555,11 @@ def getLensReview(
             )
 
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
-    # print("Full JSON:",json.dumps(response['LensReview'], cls=DateTimeEncoder))
-    lensReview = response['LensReview']
-    return lensReview
+    return response['LensReview']
 
 def getLensReviewPDFReport(
     waclient,
@@ -595,23 +583,24 @@ def getLensReviewPDFReport(
             )
 
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
-    # print("Full JSON:",json.dumps(response['LensReviewReport']['Base64String'], cls=DateTimeEncoder))
-    lensReviewPDF = response['LensReviewReport']['Base64String']
-    return lensReviewPDF
+    return response['LensReviewReport']['Base64String']
 
 def main():
     boto3_min_version = "1.16.38"
     # Verify if the version of Boto3 we are running has the wellarchitected APIs included
     if (packaging.version.parse(boto3.__version__) < packaging.version.parse(boto3_min_version)):
-        logger.error("Your Boto3 version (%s) is less than %s. You must ugprade to run this script (pip3 install boto3 --upgrade --user)" % (boto3.__version__, boto3_min_version))
+        logger.error(
+            f"Your Boto3 version ({boto3.__version__}) is less than {boto3_min_version}. You must ugprade to run this script (pip3 install boto3 --upgrade --user)"
+        )
+
         exit()
 
     # STEP 1 - Configure environment
-    logger.info("Starting Boto %s Session" % boto3.__version__)
+    logger.info(f"Starting Boto {boto3.__version__} Session")
     # Create a new boto3 session
     if FROM_ACCOUNT:
         SESSION1 = boto3.session.Session(profile_name=FROM_ACCOUNT)
@@ -667,15 +656,15 @@ def main():
     industry,
     accountIds
     )
-    logger.info("New workload id: %s (%s)" % (toWorkloadId,toWorkloadARN))
+    logger.info(f"New workload id: {toWorkloadId} ({toWorkloadARN})")
 
     # Iterate over each lens and copy all of the answers
     for lens in workloadJson['Lenses']:
-        logger.info("Retrieving all answers for lens %s" % lens)
+        logger.info(f"Retrieving all answers for lens {lens}")
         answers = listAllAnswers(WACLIENT,workloadId,lens)
         # Ensure the lens is attached to the new workload
         associateLens(WACLIENT_TO,toWorkloadId,[lens])
-        logger.info("Copying answers into new workload for lens %s" % lens)
+        logger.info(f"Copying answers into new workload for lens {lens}")
         for answerCopy in answers:
             notesField = ''
             notesField = getNotesForQuestion(WACLIENT,workloadId,lens,answerCopy['QuestionId'])

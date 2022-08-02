@@ -114,9 +114,7 @@ PILLAR_PROPER_NAME_MAP = {
 class DateTimeEncoder(json.JSONEncoder):
     """Helper class to convert a datetime item to JSON."""
     def default(self, z):
-        if isinstance(z, datetime.datetime):
-            return str(z)
-        return super().default(z)
+        return str(z) if isinstance(z, datetime.datetime) else super().default(z)
 
 def CreateNewWorkload(
      waclient,
@@ -153,8 +151,11 @@ def CreateNewWorkload(
         )
     except waclient.exceptions.ConflictException as e:
         workloadId,workloadARN = FindWorkload(waclient,workloadName)
-        logger.error("ERROR - The workload name %s already exists as workloadId %s" % (workloadName, workloadId))
-        userAnswer=input("Do You Want To Overwrite workload %s? [y/n]" % workloadId)
+        logger.error(
+            f"ERROR - The workload name {workloadName} already exists as workloadId {workloadId}"
+        )
+
+        userAnswer = input(f"Do You Want To Overwrite workload {workloadId}? [y/n]")
         if userAnswer == "y":
             logger.info("Overwriting existing workload")
             UpdateWorkload(waclient,workloadId,workloadARN, workloadName,description,reviewOwner,environment,awsRegions,tags)
@@ -163,9 +164,9 @@ def CreateNewWorkload(
             sys.exit(1)
         return workloadId, workloadARN
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
     workloadId = response['WorkloadId']
     workloadARN = response['WorkloadArn']
@@ -194,34 +195,33 @@ def UpdateWorkload(
         AwsRegions=awsRegions,
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
     if tags:
         logger.info("Updating workload tags")
         try:
             waclient.tag_resource(WorkloadArn=workloadARN,Tags=tags)
         except botocore.exceptions.ParamValidationError as e:
-            logger.error("ERROR - Parameter validation error: %s" % e)
+            logger.error(f"ERROR - Parameter validation error: {e}")
         except botocore.exceptions.ClientError as e:
-            logger.error("ERROR - Unexpected error: %s" % e)
+            logger.error(f"ERROR - Unexpected error: {e}")
     else:
         logger.info("Found blank tag set, removing any I find")
         try:
             tagresponse = waclient.list_tags_for_resource(WorkloadArn=workloadARN)
         except botocore.exceptions.ParamValidationError as e:
-            logger.error("ERROR - Parameter validation error: %s" % e)
+            logger.error(f"ERROR - Parameter validation error: {e}")
         except botocore.exceptions.ClientError as e:
-            logger.error("ERROR - Unexpected error: %s" % e)
-        tagkeys = list(tagresponse['Tags'])
-        if tagkeys:
+            logger.error(f"ERROR - Unexpected error: {e}")
+        if tagkeys := list(tagresponse['Tags']):
             try:
                 waclient.untag_resource(WorkloadArn=workloadARN,TagKeys=tagkeys)
             except botocore.exceptions.ParamValidationError as e:
-                logger.error("ERROR - Parameter validation error: %s" % e)
+                logger.error(f"ERROR - Parameter validation error: {e}")
             except botocore.exceptions.ClientError as e:
-                logger.error("ERROR - Unexpected error: %s" % e)
+                logger.error(f"ERROR - Unexpected error: {e}")
         else:
             logger.info("TO Workload has blank keys as well, no need to update")
 
@@ -235,7 +235,7 @@ def findAllQuestionId(
     # Due to a bug in some lenses, I have to iterate over each pillar in order to
     # retrieve the correct results.
     for pillar in PILLAR_PARSE_MAP:
-        logger.debug("Grabbing answers for %s %s" % (lensAlias, pillar))
+        logger.debug(f"Grabbing answers for {lensAlias} {pillar}")
         # Find a questionID using the questionTitle
         try:
             response=waclient.list_answers(
@@ -244,18 +244,18 @@ def findAllQuestionId(
             PillarId=pillar
             )
         except botocore.exceptions.ParamValidationError as e:
-            logger.error("ERROR - Parameter validation error: %s" % e)
+            logger.error(f"ERROR - Parameter validation error: {e}")
         except botocore.exceptions.ClientError as e:
-            logger.error("ERROR - Unexpected error: %s" % e)
+            logger.error(f"ERROR - Unexpected error: {e}")
 
         answers.extend(response["AnswerSummaries"])
         while "NextToken" in response:
             try:
                 response = waclient.list_answers(WorkloadId=workloadId,LensAlias=lensAlias,PillarId=pillar,NextToken=response["NextToken"])
             except botocore.exceptions.ParamValidationError as e:
-                logger.error("ERROR - Parameter validation error: %s" % e)
+                logger.error(f"ERROR - Parameter validation error: {e}")
             except botocore.exceptions.ClientError as e:
-                logger.error("ERROR - Unexpected error: %s" % e)
+                logger.error(f"ERROR - Unexpected error: {e}")
             answers.extend(response["AnswerSummaries"])
     return answers
 
@@ -270,9 +270,9 @@ def FindWorkload(
         WorkloadNamePrefix=workloadName
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
     # print("Full JSON:",json.dumps(response['WorkloadSummaries'], cls=DateTimeEncoder))
     workloadId = response['WorkloadSummaries'][0]['WorkloadId']
@@ -290,14 +290,12 @@ def GetWorkload(
         WorkloadId=workloadId
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
         sys.exit()
 
-    # print("Full JSON:",json.dumps(response['Workload'], cls=DateTimeEncoder))
-    workload = response['Workload']
-    return workload
+    return response['Workload']
 
 def associateLens(
     waclient,
@@ -311,9 +309,9 @@ def associateLens(
         LensAliases=lens
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
     return response
 
 def getAnswerForQuestion(
@@ -330,12 +328,11 @@ def getAnswerForQuestion(
         QuestionId=questionId
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
-    answers = response['Answer']
-    return answers
+    return response['Answer']
 
 def updateAnswersForQuestion(
     waclient,
@@ -355,14 +352,13 @@ def updateAnswersForQuestion(
         Notes=notes
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
     # print(json.dumps(response))
     jmesquery = "Answer.SelectedChoices"
-    answers = jmespath.search(jmesquery, response)
-    return answers
+    return jmespath.search(jmesquery, response)
 
 def listAllAnswers(
     waclient,
@@ -394,9 +390,9 @@ def getWorkloadLensReview(
         LensAlias=lensAlias
         )
     except botocore.exceptions.ParamValidationError as e:
-        logger.error("ERROR - Parameter validation error: %s" % e)
+        logger.error(f"ERROR - Parameter validation error: {e}")
     except botocore.exceptions.ClientError as e:
-        logger.error("ERROR - Unexpected error: %s" % e)
+        logger.error(f"ERROR - Unexpected error: {e}")
 
     return response['LensReview']
 
@@ -406,11 +402,14 @@ def main():
     boto3_min_version = "1.16.38"
     # Verify if the version of Boto3 we are running has the wellarchitected APIs included
     if packaging.version.parse(boto3.__version__) < packaging.version.parse(boto3_min_version):
-        logger.error("Your Boto3 version (%s) is less than %s. You must ugprade to run this script (pip3 upgrade boto3)" % (boto3.__version__, boto3_min_version))
+        logger.error(
+            f"Your Boto3 version ({boto3.__version__}) is less than {boto3_min_version}. You must ugprade to run this script (pip3 upgrade boto3)"
+        )
+
         sys.exit()
 
-    logger.info("Script version %s" % __version__)
-    logger.info("Starting Boto %s Session" % boto3.__version__)
+    logger.info(f"Script version {__version__}")
+    logger.info(f"Starting Boto {boto3.__version__} Session")
     # Create a new boto3 session
     SESSION1 = boto3.session.Session(profile_name=PROFILE)
     # Initiate the well-architected session using the region defined above
@@ -434,18 +433,18 @@ def main():
 
         # Iterate over each lens and copy all of the answers
         for lens in workloadJson['Lenses']:
-            logger.info("Gathering overall review for lens %s" % lens)
+            logger.info(f"Gathering overall review for lens {lens}")
             lensReview = getWorkloadLensReview(WACLIENT,WORKLOADID,lens)
             exportObject['lens_review'].append({lens: lensReview})
-            logger.info("Retrieving all answers for lens %s" % lens)
+            logger.info(f"Retrieving all answers for lens {lens}")
             answers = listAllAnswers(WACLIENT,WORKLOADID,lens)
             exportObject['lenses'].append({lens: answers})
         with open(FILENAME, 'w') as outfile:
             json.dump(exportObject, outfile, indent=4, cls=DateTimeEncoder)
-        logger.info("Export completed to file %s" % FILENAME)
+        logger.info(f"Export completed to file {FILENAME}")
 
     if importWorkload:
-        logger.info("Creating a new workload from file %s" % FILENAME)
+        logger.info(f"Creating a new workload from file {FILENAME}")
         with open(FILENAME) as json_file:
             importObject = json.load(json_file)
         workloadJson = importObject['workload'][0]
@@ -475,33 +474,36 @@ def main():
                                                     industry,
                                                     accountIds
                                                     )
-        logger.info("New workload id: %s (%s)" % (toWorkloadId,toWorkloadARN))
+        logger.info(f"New workload id: {toWorkloadId} ({toWorkloadARN})")
 
         # Iterate over each lens and copy all of the answers
         for lens in workloadJson['Lenses']:
             # We need to verify the lens version first
             logger.info("Verifying lens version before restoring answers")
             lensReview = getWorkloadLensReview(WACLIENT,toWorkloadId,lens)
-            importLensVersion = jmespath.search("[*]."+lens+".LensVersion", importObject['lens_review'])[0]
+            importLensVersion = jmespath.search(
+                f"[*].{lens}.LensVersion", importObject['lens_review']
+            )[0]
+
             # ************************************************************************
             #  There is no ability to restore to a specific lens version
             #  in the API at this time, so we just have to error out if
             #  the version has changed.
             # ************************************************************************
             if lensReview['LensVersion'] != importLensVersion:
-                logger.error("Version of the lens %s does not match the new workload" % lens)
-                logger.error("Import Version: %s" % importLensVersion)
-                logger.error("New Workload Version: %s" % lensReview['LensVersion'])
-                logger.error("You may need to delete the workload %s" % toWorkloadId)
+                logger.error(f"Version of the lens {lens} does not match the new workload")
+                logger.error(f"Import Version: {importLensVersion}")
+                logger.error(f"New Workload Version: {lensReview['LensVersion']}")
+                logger.error(f"You may need to delete the workload {toWorkloadId}")
                 sys.exit()
             else:
-                logger.info("Versions match (%s)" % importLensVersion)
+                logger.info(f"Versions match ({importLensVersion})")
 
-            logger.info("Retrieving all answers for lens %s" % lens)
+            logger.info(f"Retrieving all answers for lens {lens}")
 
-            answers = jmespath.search("[*]."+lens+"[]", importObject['lenses'])
+            answers = jmespath.search(f"[*].{lens}[]", importObject['lenses'])
             associateLens(WACLIENT,toWorkloadId,[lens])
-            logger.info("Copying answers into new workload for lens %s" % lens)
+            logger.info(f"Copying answers into new workload for lens {lens}")
             for answerCopy in answers:
                 notesField = answerCopy['Notes'] if "Notes" in answerCopy else ""
                 updateAnswersForQuestion(WACLIENT,toWorkloadId,lens,answerCopy['QuestionId'],answerCopy['SelectedChoices'],notesField)
